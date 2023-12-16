@@ -26,8 +26,6 @@ out_dir <- file.path(out_dir, "stan_data")
 if (!dir.exists(out_dir)) dir.create(out_dir)
 saveRDS(stan_data, file = file.path(out_dir, paste0(config$model$name, ".rds")))
 
-print(config$model$name)
-
 cat(" Compiling Stan model...\n")
 stan_model <- cmdstan_model(file.path("stan_models", paste0(config$model$name, ".stan")),
                             compile = TRUE)
