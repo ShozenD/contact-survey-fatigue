@@ -50,3 +50,6 @@ rsconnect/
 
 # Ignore everything in the data directory
 data/*
+
+# Ignore all mac files
+*.DS_Store
