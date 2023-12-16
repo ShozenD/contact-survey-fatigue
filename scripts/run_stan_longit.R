@@ -45,7 +45,8 @@ stan_fit <- stan_model$sample(data = stan_data,
                               parallel_chains = config$mcmc$parallel_chains,
                               iter_warmup = config$mcmc$iter_warmup,
                               iter_sampling = config$mcmc$iter_sampling,
-                              max_treedepth = config$mcmc$max_treedepth)
+                              max_treedepth = config$mcmc$max_treedepth,
+                              refresh = 10)
 
 # ===== Save fitted model =====
 cat(" Saving the fitted model...\n")

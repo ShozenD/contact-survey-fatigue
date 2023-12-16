@@ -2,18 +2,26 @@ source("R/make_design_matrices.R")
 source("R/add_horseshoe_params.R")
 
 make_stan_data <- function(data, config){
-  if (stringr::str_detect(config$model$name, "^zi")) {
-    stan_data <- make_stan_data.zi(data)
-  } else if (stringr::str_detect(config$model$name, "^logit")) {
-    stan_data <- make_stan_data.logit(data)
-  } else if (stringr::str_detect(config$model$name, "[^pois|^rsb]")) {
-    stan_data <- make_stan_data.pois(data)
-  } else if (stringr::str_detect(config$model$name, "_longit_")) { # Longitudinal models
+  if (stringr::str_detect(config$model$name, "_longit_")) {
+    # Data processing for longitudinal models
     stan_data <- make_stan_data.longit(data)
-  }
 
-  if (stringr::str_detect(config$model$name, "horseshoe")) {
-    stan_data <- add_horseshoe_params(stan_data, config)
+  } else {
+    # Data processing for cross-sectional models
+    if (stringr::str_detect(config$model$name, "^zi")) {
+      stan_data <- make_stan_data.zi(data)
+
+    } else if (stringr::str_detect(config$model$name, "^logit")) {
+      stan_data <- make_stan_data.logit(data)
+
+    } else if (stringr::str_detect(config$model$name, "[^pois|^rsb]")) {
+      stan_data <- make_stan_data.pois(data)
+    } 
+
+    # Add horseshoe parameters
+    if (stringr::str_detect(config$model$name, "horseshoe")) {
+      stan_data <- add_horseshoe_params(stan_data, config)
+    }
   }
 
   return(stan_data)
@@ -106,7 +114,9 @@ make_stan_data.longit <- function(data) {
   r_idx <- X[, "rep"] + 1 # Since we start with 0 repeats
   y_lag <- X[, "y_tot_lag"]
 
-  X_dummies <- X[, -c(1,2,3)]
+  r <- seq(1, max(r_idx) - 1)
+
+  X_dummies <- X[, -c(1, 2, 3)]
 
   # Create stan_data
   stan_data <- list(
@@ -120,6 +130,7 @@ make_stan_data.longit <- function(data) {
     w_idx = w_idx,
     r_idx = r_idx,
     y_lag = y_lag,
+    r = r,
     y = y
   )
 

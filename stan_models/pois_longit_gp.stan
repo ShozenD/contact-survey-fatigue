@@ -5,9 +5,19 @@ functions {
   // scale: scale parameter
   // lengthscale: lengthscale parameter
   // nugget: nugget parameter
-  vector gp_se(vector x, vector mu, real scale, real lenscale, real nugget) {
+  vector gp_se(array[] real x, vector mu, real scale, real lenscale, real nugget) {
     int N = num_elements(x);
-    matrix[N, N] K = cov_exp_quad(x, scale, lenscale);
+    matrix[N, N] K = gp_exp_quad_cov(x, scale, lenscale);
+    K = K + diag_matrix(rep_vector(square(nugget), N));
+    matrix[N, N] L = cholesky_decompose(K);
+
+    return L * mu;
+  }
+
+  /* Gaussian process with Matern 3/2 covariance functions */
+  vector gp_matern32(array[] real x, vector mu, real scale, real lenscale, real nugget) {
+    int N = num_elements(x);
+    matrix[N, N] K = gp_matern32_cov(x, scale, lenscale);
     K = K + diag_matrix(rep_vector(square(nugget), N));
     matrix[N, N] L = cholesky_decompose(K);
 
@@ -24,17 +34,15 @@ data {
   matrix[N,P] X;         // dummy variables predictor matrix
   array[N] int part_idx; // participant index
   array[N] int w_idx;    // Wave variable
-  array[N] int r_idx;              // Repeat variable (may be transformed in a non-linear fashion)
+  array[N] int r_idx;    // Repeat variable (may be transformed in a non-linear fashion)
   vector[N] y_lag;       // lagged response variable (AR1)
+
+  array[N_repeat-1] real r; // A array of the number of repeats (standardized to 0-1)
 
   array[N] int y;           // response variable
 }
 
 transformed data{
-  // Normalise to be between [0, 1]
-  vector[N] r = to_vector(r_idx);
-  r = (r - min(r)) / (max(r) - min(r));
-
   // Adhoc fix to prevent overflow (not very elegant...)
   vector[N] log_y_lag = log(y_lag + 1);
 }
@@ -42,10 +50,15 @@ transformed data{
 parameters {
   real alpha;                // Intercept
   vector[P] beta;            // dummy coefficients
-  vector[N_wave] tau;        // wave coefficients
-  vector[N_repeat] gp_mu;    // Gaussian process: auxiliary random variable
-  real<lower=0> gp_scale;    // Gaussian process: scale parameter
-  real<lower=0> gp_lenscale; // Gaussian process: lengthscale parameter
+
+  // Time varying coefficients
+  vector[N_wave] gp_time_mu;
+  real<lower=0> gp_time_scale;
+  real<lower=0> gp_time_lenscale;
+  
+  vector[N_repeat-1] gp_repeat_mu;    // Gaussian process: auxiliary random variable
+  real<lower=0> gp_repeat_scale;    // Gaussian process: scale parameter
+  real<lower=0> gp_repeat_lenscale; // Gaussian process: lengthscale parameter
 
   // Auto-regressive parameter for participant
   real phi_loc_hyper;
@@ -54,13 +67,18 @@ parameters {
 }
 
 transformed parameters {
-  vector[N] rho = gp_se(r, gp_mu, gp_scale, gp_lenscale, 1e-3); // Gaussian process
+  vector[N_wave] tau;
+  tau = gp_matern32(w_idx, gp_time_mu, gp_time_scale, gp_time_lenscale, 1e-3); // Gaussian process
+
+  vector[N_repeat] rho;
+  rho[1] = 0;
+  rho[2:N_repeat] = gp_se(r, gp_repeat_mu, gp_repeat_scale, gp_repeat_lenscale, 1e-3); // Gaussian process
 
   vector[N_part] phi = (phi_loc_hyper + phi_aux) * phi_scale_hyper;
 
   // Linear predictor
   vector[N] log_lambda; // log rate
-  log_lambda = alpha + X * beta + tau[w_idx] + phi[part_idx] .* log_y_lag - rho[r_idx];
+  log_lambda = alpha + X * beta + tau[w_idx] + phi[part_idx] .* log_y_lag + rho[r_idx];
 }
 
 model {
@@ -74,9 +92,13 @@ model {
   target += normal_lpdf(phi_aux | 0, 1);
   
   // Gaussian process priors
-  target += normal_lpdf(gp_mu | 0, 1);
-  target += gamma_lpdf(gp_scale | 5, 5);
-  target += gamma_lpdf(gp_lenscale | 5, 5);
+  target += normal_lpdf(gp_time_mu | 0, 1);
+  target += gamma_lpdf(gp_time_scale | 5, 5);
+  target += gamma_lpdf(gp_time_lenscale | 5, 5);
+
+  target += normal_lpdf(gp_repeat_mu | 0, 1);
+  target += gamma_lpdf(gp_repeat_scale | 5, 5);
+  target += gamma_lpdf(gp_repeat_lenscale | 5, 5);
 
   // Priors for random walk wave coefficients
   target += normal_lpdf(tau[1] | 0, 1);
