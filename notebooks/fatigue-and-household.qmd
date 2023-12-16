@@ -1,0 +1,272 @@
+---
+title: "Confounders of Reporting Fatigue"
+format:
+  pdf:
+    toc: true
+    number-sections: true
+    colorlinks: true
+---
+
+# Confounders of Reporting Fatigue
+
+```{r}
+# Load library
+library(tidyverse)
+library(patchwork)
+
+ic_color_palette <- c("#00548F", "#7244E5", "#CC3DC7", "#CC3D5C", "#CC893D", "#A3CC3D", "#3DCC41", "#3DCCAD")
+```
+
+```{r}
+# Load data
+covimod_data <- read_rds("../data/COVIMOD/COVIMOD_data_2022-12-29.rds")
+
+# Unpack data
+dt_part <- covimod_data$part
+dt_nhh <- covimod_data$nhh
+dt_hh <- covimod_data$hh
+dt_pop <- covimod_data$pop
+```
+
+## Background
+Preliminary results from the Bayes-Rate-Consistency model suggested that reporting fatigue was most prevalent among contacting individuals of age 20 to 60 (working age adults) with contacts of age 0 to 20 (children). However, this is counter intuitive because it requires very little effort for participants to report household contacts. This suggests that there may be other factor influencing the number of reported contacts, and that our model is suffering from omitted variable bias.
+
+## Key Questions
+- For people participating in the study multiple times, have their household size changed?
+- Could it be the case that people who joined in later waves had a smaller household size?
+
+## Analysis
+### The distribution of initial reported household size
+```{r}
+# Reported household size for each participant
+dt_init_hh_size <- dt_hh %>% 
+  group_by(new_id, wave) %>% 
+  summarise(hh_size = n()) %>% 
+  arrange(wave, new_id) %>%
+  filter(row_number() == 1)
+
+# Number of different household sizes for each wave
+dt_init_hh_size <- dt_init_hh_size %>% 
+  group_by(wave, hh_size) %>% 
+  summarise(n = n())
+
+# Bar plot (count)
+plt_count <- ggplot(dt_init_hh_size, aes(wave, n)) +
+  geom_bar(aes(fill = factor(hh_size)), stat = "identity", position = "stack") +
+  labs(x = "Wave", y = "Count", fill = "Household\nsize") +
+  theme_bw()
+
+# Bar plot (proportion)
+# Calculate proportion
+dt_init_hh_size <- dt_init_hh_size %>% 
+  group_by(wave) %>%
+  mutate(p = n/sum(n))
+
+plt_prop <- ggplot(dt_init_hh_size, aes(wave, p)) +
+  geom_bar(aes(fill = factor(hh_size)), stat = "identity", position = "stack") + 
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(x = "Wave", y = "Proportion", fill = "Household\nsize") +
+  theme_bw()
+
+plt_combined <- plt_count + plt_prop & theme(legend.position = "bottom")
+plt_combined + plot_layout(guides = "collect")
+```
+- The distribution of household size for newly enrolled participants varies for every wave.
+- The first 4 waves have a similar household size distribution whereas there are large variations for later waves (waves 10 and beyond)
+- The most common household size is 2 followed by 1, 3, and 4. These four groups combined account for more than 90% of the sample. In other words, we don't observe many large households.
+
+### Changes in household size with each participation
+```{r}
+# Reported household size for each participant
+dt_indiv_hh_size <- dt_hh %>% 
+  group_by(new_id, wave) %>% 
+  summarise(hh_size = n()) %>% 
+  arrange(new_id) 
+
+# Find participants who were in wave 1
+wave1_part_ids <- dt_indiv_hh_size %>% filter(wave == 1) %>% pull(new_id)
+
+# Find participants who participated multiple times
+multi_part_ids <- dt_indiv_hh_size %>%
+  group_by(new_id) %>%
+  summarise(reps = n()) %>%
+  filter(reps > 1) %>%
+  pull(new_id)
+
+# Find the intersection
+wave1_multi_part_ids <- intersect(wave1_part_ids, multi_part_ids)
+
+# Filter out one-time participants
+dt_multi_indiv_hh_size <- dt_indiv_hh_size %>% 
+  filter(new_id %in% wave1_multi_part_ids) %>% 
+  group_by(new_id) %>%
+  mutate(
+    init_hh_size = first(hh_size), # Obtain initial household size
+    hh_size_jitter = hh_size + rnorm(1, 0, 0.05) # Add a little bit of noise for visualisation
+  ) 
+
+# Visualise the trajectories
+ggplot(dt_multi_indiv_hh_size, aes(wave, hh_size_jitter)) +
+  geom_line(aes(group = new_id, color = factor(init_hh_size)), alpha = 0.3) +
+  scale_x_continuous(expand = c(0, 0), breaks = seq(0, 35, 5)) +
+  scale_y_continuous(breaks = seq(1, 12, 1)) +
+  labs(x = "Wave", y = "Household size", color = "Initial reported\nhousehold size") +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+```
+The plot above shows the household size trajectory for every participant who was surveyed in wave 1 and who participated in the survey multiple times. The colours represent the initial reported household size (household size reported at wave 1). If household size of an individual does not change, than we would see a horizontal line. However, if the household size changes, we would see lines traversing between the different layers.
+
+- We see quite a few lines going down, but not many going up. This suggest that household size for some individuals drops in later waves. Perhaps this could be due to people moving out after a ease in contact reduction measures.
+- We need to quantify the proportion of participants who reported an increase in household size, a decrease in household size, and no change in household size.
+
+```{r}
+# Filter out households larger than 4 (hh size smaller or equal to 4 accounts for 90% of entire sample)
+dt_multi_indiv_hh_size_lte4 <- dt_multi_indiv_hh_size %>% filter(init_hh_size <= 4)
+
+ggplot(filter(dt_multi_indiv_hh_size_lte4, wave <= 10), aes(wave, hh_size_jitter)) +
+  geom_line(aes(group = new_id, color = factor(init_hh_size)), alpha = 0.2) +
+  scale_x_continuous(expand = c(0, 0), breaks = seq(0, 10, 2)) +
+  scale_y_continuous(breaks = seq(1, 12, 1)) +
+  scale_color_manual(values = ic_color_palette) +
+  facet_wrap(~paste("Initial hh size:", init_hh_size), ncol = 2) +
+  labs(x = "Wave", y = "Household size", color = "Initial reported\nhousehold size") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank()
+  )
+
+ggsave("../figures/hh-size-trajectories.pdf", units = "cm", width = 14.26, height = 12)
+```
+
+The plot above shows the household size trajectory for every participant who was:
+
+1. Surveyed in wave 1
+2. participated in the survey multiple times
+3. has a household size of less than or equal to 4.
+
+Each individual panel represent a initial household size (household size reported in wave 1).
+
+- Aside from those who reported a household size of 1, household size on average seem to decrease with time
+
+```{r}
+ids_w1 <- dt_indiv_hh_size %>% filter(wave == 1) %>% pull(new_id) %>% unique()
+ids_w4 <- dt_indiv_hh_size %>% filter(wave == 4) %>% pull(new_id) %>% unique()
+ids_w14 <- intersect(ids_w1, ids_w4)
+
+tmp <- dt_indiv_hh_size %>%
+  filter(new_id %in% ids_w14, wave %in% c(1,4)) 
+```
+
+```{r}
+library(nycflights13)
+
+top_dest <- flights %>% 
+  count(dest) %>% 
+  top_n(5, n) %>% 
+  pull(dest)
+
+top_carrier <- flights %>% 
+  filter(dest %in% top_dest) %>% 
+  count(carrier) %>% 
+  top_n(4, n) %>% 
+  pull(carrier)
+
+fly <- flights %>% 
+  filter(dest %in% top_dest & carrier %in% top_carrier) %>% 
+  count(origin, carrier, dest) %>% 
+  mutate(origin = fct_relevel(as.factor(origin), c("EWR", "LGA", "JFK")))
+
+alluvial(fly %>% select(-n),
+         freq=fly$n, border=NA, alpha = 0.5,
+         col=case_when(fly$origin == "JFK" ~ "red",
+                       fly$origin == "EWR" ~ "blue",
+                       TRUE ~ "orange"),
+         cex=0.75,
+         axis_labels = c("Origin", "Carrier", "Destination"),
+         hide = fly$n < 150)
+```
+
+
+#### Quantifying the proportion of participants with a smaller household size in later waves
+```{r}
+# Whether if household size shrunk compared to the first wave
+dt_hh_size_chng <- dt_multi_indiv_hh_size_lte4 %>% 
+  group_by(new_id) %>% 
+  summarise(
+    init_hh_size = first(hh_size),
+    min_hh_size = min(hh_size)
+  ) %>% 
+  mutate(hh_size_shrunk = ifelse(init_hh_size > min_hh_size, TRUE, FALSE))
+
+# Calculate proportion by initial household size
+dt_hh_size_chng %>% 
+  group_by(init_hh_size) %>% 
+  summarise(p = mean(hh_size_shrunk))
+```
+The table above shows the proportion of participant who reported a household size that was smaller then the one they reported in the first wave at least once in the follow up waves, stratified by the initial household size.
+
+- More than 50% of participants reported a smaller household size than the initial household size.
+- The larger the household, the bigger this proportion seems to be
+
+```{r}
+# The same analysis for the first five waves
+dt_hh_size_chng_first5w <- dt_multi_indiv_hh_size_lte4 %>% 
+  group_by(new_id) %>% 
+  filter(wave %in% seq(2, 5, 1)) %>% 
+  summarise(
+    init_hh_size = first(hh_size),
+    min_hh_size = min(hh_size)
+  ) %>% 
+  filter(init_hh_size <= 4) %>%
+  mutate(hh_size_shrunk = ifelse(init_hh_size > min_hh_size, TRUE, FALSE))
+
+# Calculate proportion by initial household size
+dt_hh_size_chng_first5w %>% 
+  group_by(init_hh_size) %>% 
+  summarise(p = mean(hh_size_shrunk))
+```
+The table above shows the same quantities as the previous table but now focusing only on the first 5 waves. 
+
+- Even in the first 5 waves, more than 15% of participants report a smaller household size in latter waves.
+- The larger the household, the bigger this proportion seems to be.
+
+What are the profiles of the people who reduced their household size?
+```{r}
+hh_size_shrunk_ids <- dt_hh_size_chng_first5w %>% 
+  filter(hh_size_shrunk) %>% 
+  pull(new_id)
+
+tmp <- dt_part %>% 
+  filter(
+    new_id %in% hh_size_shrunk_ids,
+    wave <= 5 
+  ) %>% 
+  select(new_id, age, gender) %>% 
+  unique()
+
+ggplot(tmp, aes(x = age)) +
+  geom_histogram(aes(fill = gender)) +
+  theme_bw()
+```
+The plot above shows the age distribution of people who reduced their household size.
+- It seems that the ageing population (50 and above) were the ones that reduced their household size in the first wave of COVID.
+- Could it be that families lived together more during the lock down period?
+- Once restriction lifted, the younger generation returned to the city for work?
+- Could this be a sampling bias? i.e. there were more older people in the sample than younger people
+
+Need some concrete examples to gain a picture of whats going on
+```{r}
+target_id <- tmp$new_id[12]
+
+print(target_id)
+dt_part %>% filter(new_id == target_id, wave <= 5)
+dt_hh %>% filter(new_id == target_id, wave <= 5)
+```
+
+
+

@@ -1,0 +1,46 @@
+```{r}
+library(tidyverse)
+```
+
+```{r}
+# Load data
+covimod_data <- read_rds("../data/COVIMOD/COVIMOD_data_2022-12-29.rds")
+
+# Unpack data
+dt_part <- setDT(covimod_data$part)
+dt_nhh <- setDT(covimod_data$nhh)
+dt_hh <- setDT(covimod_data$hh)
+dt_pop <- setDT(covimod_data$pop)
+```
+
+```{r}
+dt_part_w21 <- dt_part %>% filter(wave == 21)
+
+# Participants in wave 4 who participated before wave 4
+ids_part_w21 <- dt_part_w21 %>% pull(new_id) %>% unique()
+ids_part_w1t21 <- dt_part %>% filter(wave < 21) %>% pull(new_id) %>% unique()
+ids_part_rep <- intersect(ids_part_w21, ids_part_w1t21)
+
+dt_part_w21 <- dt_part_w21 %>% mutate(rep = ifelse(new_id %in% ids_part_rep, TRUE, FALSE))
+
+tmp <- dt_part_w21 %>% 
+  filter(hh_p_incl_0 <= 4) %>% 
+  group_by(rep, hh_p_incl_0) %>%
+  summarise(n = n()) %>% 
+  ungroup(hh_p_incl_0) %>%
+  mutate(prop = round(n/sum(n), 2)*100)
+```
+
+```{r}
+# Plot stack bar plot
+ggplot(tmp, aes(x = rep, y = prop, fill = ordered(hh_p_incl_0))) + 
+  geom_bar(stat = "identity", width = 0.5) +
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  labs(x = "Repeating", y = "Proportion", fill = "Household\nsize") +
+  theme_bw()
+
+ggsave("../figures/wave21-hhsize-dist.pdf", units = "cm", width = 14.26, height = 12)
+```
+
+
+

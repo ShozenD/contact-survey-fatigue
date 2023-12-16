@@ -1,0 +1,62 @@
+```{r message=FALSE}
+# Load libraries
+library(tidyverse)
+library(data.table)
+
+# Load data
+covimod_data <- read_rds("../data/COVIMOD/COVIMOD_data_2022-12-29.rds")
+
+# Unpack data
+dt_part <- setDT(covimod_data$part)
+dt_nhh <- setDT(covimod_data$nhh)
+dt_hh <- setDT(covimod_data$hh)
+dt_pop <- setDT(covimod_data$pop)
+```
+
+The number / proportion of repeats in each wave
+```{r}
+# The number of times a participant repeatedly participated in the survey
+setkeyv(dt_part, cols = c("new_id", "wave"))
+dt_part[, rep := seq_len(.N) - 1, by = .(new_id)]
+```
+
+```{r}
+# Count the number of participants by repeat (sample size by repeat)
+dt_repeat_sampsize <- dt_part[, .(N = .N), by = rep]
+
+ggplot(dt_repeat_sampsize, aes(rep, N)) +
+  geom_bar(stat = "identity") +
+  theme_bw()
+```
+
+```{r}
+# The maximum number of repeats for each participant
+# Count the maximum number of repeats
+dt_max_rep <- dt_part[, .(max_rep = max(rep)), by = new_id]
+dt_max_rep <- dt_max_rep[, .(N = .N), by = max_rep]
+
+ggplot(dt_max_rep, aes(max_rep, N)) +
+  geom_bar(stat = "identity") +
+  theme_bw()
+```
+
+```{r}
+dt_rep_sampsize <- dt_part[, .(N = .N), by = .(wave, rep)]
+dt_rep_sampsize[wave == 12]
+
+ggplot(dt_rep_sampsize, aes(wave, N, fill = ordered(rep))) +
+  geom_bar(stat = "identity") + 
+  scale_x_discrete(expand = c(0,0)) +
+  labs(x = "Wave", y = "Sample size [N]", fill = "No. of repeat") +
+  theme_bw()
+```
+```{r}
+# For waves 3 to 12 specifically
+dt_max_rep <- dt_part[wave >= 3 & wave <= 12, .(max_rep = max(rep)), by = new_id]
+dt_max_rep <- dt_max_rep[, .(N = .N), by = max_rep]
+
+ggplot(dt_max_rep, aes(max_rep, N)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Maximum no. of repeat", y = "Sample size") +
+  theme_bw()
+```

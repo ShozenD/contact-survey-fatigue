@@ -1,0 +1,137 @@
+```{r}
+# Import libraries
+library(tidyverse)
+library(data.table)
+library(ggplot2)
+library(brms)
+library(cmdstanr)
+```
+
+```{r, echo=FALSE}
+# Load data
+covimod_data <- read_rds("../data/COVIMOD/COVIMOD_data_2022-12-29.rds")
+
+# Unpack data
+dt_part <- setDT(covimod_data$part)
+dt_nhh <- setDT(covimod_data$nhh)
+dt_hh <- setDT(covimod_data$hh)
+dt_pop <- setDT(covimod_data$pop)
+```
+
+```{r}
+# ========== Preprocessing Step ==========
+# Calculate the number of repeats
+dt_part[, rep := seq_len(.N), by = .(new_id)]
+dt_part[, rep := rep - 1]
+
+# Calculate number of household contacts
+dt_hh_cnt <- dt_hh %>% 
+  group_by(new_id, wave) %>%
+  summarise(y_hh = sum(hh_met_this_day))
+
+# Calculate the number of non-household contacts
+dt_nhh_cnt <- dt_nhh %>% 
+  group_by(new_id, wave) %>%
+  summarise(y_nhh = n())
+
+# Merge contact data and participant data
+dt_cnt <- dt_part %>% 
+  left_join(dt_hh_cnt, by = c("new_id", "wave")) %>%
+  left_join(dt_nhh_cnt, by = c("new_id", "wave")) %>%
+  mutate(
+    y_hh = ifelse(is.na(y_hh), 0, y_hh),
+    y_nhh = ifelse(is.na(y_nhh), 0, y_nhh),
+    y_grp = rowSums(across(Q75_u18_work:Q76_o64_else), na.rm = TRUE),
+    y = y_hh + y_nhh,
+    S = y / (y + y_grp),
+    S = ifelse(is.nan(S), 1, S)
+  )
+```
+
+```{r}
+max_wave <- 33
+max_rep <- max(dt_part$rep)
+unique_age_strata <- unique(dt_part$age_strata)
+unique_gender <- c("Male", "Female")
+
+dt_grid <- expand.grid(wave = seq(1,max_wave), 
+                       rep =  seq(0,max_rep),
+                       age_strata = unique_age_strata,
+                       gender = unique_gender)
+
+dt_part_sum <- dt_part %>%
+  group_by(wave, rep, age_strata, gender) %>%
+  summarise(N = n())
+
+dt_part_sum <- dt_grid %>%
+  left_join(dt_part_sum) %>%
+  mutate(N = ifelse(is.na(N), 0, N))
+
+dt_cnt <- dt_cnt %>%
+  filter(!is.na(gender) & !is.na(age_strata)) %>%
+  group_by(wave, rep, age_strata, gender) %>%
+  summarise(
+    y = sum(y),
+    y_grp = sum(y_grp),
+  ) %>%
+  mutate(
+    S = y / (y + y_grp),
+    S = ifelse(is.nan(S), 1, S)
+  )
+
+dt_merge <- dt_part_sum %>%
+  left_join(dt_cnt) %>%
+  filter(N > 0)
+
+dt_merge <- dt_merge %>% 
+  mutate(S = ifelse(S == 0, 1/y_grp, S))
+
+dt_merge$wave <- ordered(dt_merge$wave)
+dt_merge$rep <- ordered(dt_merge$rep)
+```
+
+
+## Time series models
+$$
+\begin{split}
+Y_{trag} &\sim \text{Poisson}(\lambda_{trag}) \\
+\log(\lambda_{trag}) &= \alpha + \beta_t + \beta_r + \beta_a + \beta_g + \log(N_{trag}) + \log(S_{trag})
+\end{split}
+$$
+where
+$$
+\begin{split}
+\alpha &\sim \mathcal{N}(0,10) \\
+\beta_t &\sim \mathcal{N}(0,1) \\
+\beta_r &\sim \mathcal{N}(0,1) \\
+\beta_a &\sim \mathcal{N}(0,1) \\
+\beta_g &\sim \mathcal{N}(0,1)
+\end{split}
+$$
+```{r}
+m_poisson_basic <- brm(y ~ wave + rep + age_strata + gender + offset(log(N)) + offset(log(S)),
+                       data = dt_merge,
+                       family = poisson(),
+                       chains = 2,
+                       cores = 2,
+                       iter = 1000)
+```
+
+```{r}
+summary(m_poisson_basic)
+```
+
+
+```{r}
+m_poisson_monotonic <- brm(y ~ wave + mo(rep) + age_strata + gender + offset(log(N)) + offset(log(S)),
+                           data = dt_merge,
+                           family = poisson(),
+                           chains = 2,
+                           cores = 2,
+                           iter = 1000)
+```
+```{r}
+summary(m_poisson_monotonic)
+conditional_effects(m_poisson_monotonic)
+```
+

@@ -1,0 +1,61 @@
+```{r}
+library(tidyverse)
+library(data.table)
+library(ggpubr)
+```
+
+```{r}
+# Load data
+covimod_data <- read_rds("../data/COVIMOD/COVIMOD_data_2022-12-29.rds")
+
+# Unpack data
+dt_part <- setDT(covimod_data$part)
+dt_nhh <- setDT(covimod_data$nhh)
+dt_hh <- setDT(covimod_data$hh)
+dt_pop <- setDT(covimod_data$pop)
+```
+
+```{r}
+# Participants in wave 4
+dt_part_w4 <- dt_part %>% filter(wave == 4)
+
+# Participants in wave 4 who participated before wave 4
+ids_part_w4 <- dt_part_w4 %>% pull(new_id) %>% unique()
+ids_part_w1t4 <- dt_part %>% filter(wave < 4) %>% pull(new_id) %>% unique()
+ids_part_rep <- intersect(ids_part_w21, ids_part_w1t4)
+
+dt_part_w4 <- dt_part_w4 %>% mutate(rep = ifelse(new_id %in% ids_part_rep, TRUE, FALSE))
+```
+
+```{r}
+dt_nhh_w4 <- dt_nhh %>% filter(wave == 4)
+
+dt_nhh_w4 <- dt_nhh_w4 %>% 
+  left_join(dt_part_w4, by = c("new_id", "wave"))
+
+dt_nhh_w4_sum <- dt_nhh_w4 %>%
+  group_by(rep, alter_age_strata) %>%
+  summarise(N = n())
+
+dt_nhh_w4_sum <- dt_nhh_w4_sum %>% drop_na()
+
+plt_first_time <- ggplot(filter(dt_nhh_w4_sum, rep == FALSE), aes(alter_age_strata, N)) + 
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plt_repeat <- ggplot(filter(dt_nhh_w4_sum, rep == TRUE), aes(alter_age_strata, N)) + 
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggarrange(plt_first_time, plt_repeat)
+```
+
+```{r}
+
+```
+
+
+
+
