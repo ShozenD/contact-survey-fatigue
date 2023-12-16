@@ -1,0 +1,97 @@
+functions {
+  /* Gaussian process with squared exponential covariance function */
+  // x: input vector
+  // mu: auxiliary random variable vector
+  // scale: scale parameter
+  // lengthscale: lengthscale parameter
+  // nugget: nugget parameter
+  vector gp_se(vector x, vector mu, real scale, real lenscale, real nugget) {
+    int N = num_elements(x);
+    matrix[N, N] K = cov_exp_quad(x, scale, lenscale);
+    K = K + diag_matrix(rep_vector(square(nugget), N));
+    matrix[N, N] L = cholesky_decompose(K);
+
+    return L * mu;
+  }
+}
+
+data {
+  int<lower=0> N;        // number of observations
+  int<lower=0> N_part;   // The number of unique participants
+  int<lower=0> N_wave;   // The number of waves
+  int<lower=0> N_repeat; // The number of repeats
+  int<lower=0> P;        // number of predictors (dummies)
+  matrix[N,P] X;         // dummy variables predictor matrix
+  array[N] int part_idx; // participant index
+  array[N] int w_idx;    // Wave variable
+  array[N] int r_idx;              // Repeat variable (may be transformed in a non-linear fashion)
+  vector[N] y_lag;       // lagged response variable (AR1)
+
+  array[N] int y;           // response variable
+}
+
+transformed data{
+  // Normalise to be between [0, 1]
+  vector[N] r = to_vector(r_idx);
+  r = (r - min(r)) / (max(r) - min(r));
+
+  // Adhoc fix to prevent overflow (not very elegant...)
+  vector[N] log_y_lag = log(y_lag + 1);
+}
+
+parameters {
+  real alpha;                // Intercept
+  vector[P] beta;            // dummy coefficients
+  vector[N_wave] tau;        // wave coefficients
+  vector[N_repeat] gp_mu;    // Gaussian process: auxiliary random variable
+  real<lower=0> gp_scale;    // Gaussian process: scale parameter
+  real<lower=0> gp_lenscale; // Gaussian process: lengthscale parameter
+
+  // Auto-regressive parameter for participant
+  real phi_loc_hyper;
+  real<lower=0> phi_scale_hyper;
+  vector[N_part] phi_aux;        // Auxilary parameter
+}
+
+transformed parameters {
+  vector[N] rho = gp_se(r, gp_mu, gp_scale, gp_lenscale, 1e-3); // Gaussian process
+
+  vector[N_part] phi = (phi_loc_hyper + phi_aux) * phi_scale_hyper;
+
+  // Linear predictor
+  vector[N] log_lambda; // log rate
+  log_lambda = alpha + X * beta + tau[w_idx] + phi[part_idx] .* log_y_lag - rho[r_idx];
+}
+
+model {
+  /* ===== Model Priors ===== */
+  target += normal_lpdf(alpha | 0, 10);
+  target += normal_lpdf(beta | 0, 1);
+
+  // Auto-regressive parameter for each participant
+  target += normal_lpdf(phi_loc_hyper | 0, 10);
+  target += normal_lpdf(phi_scale_hyper | 0, 1);
+  target += normal_lpdf(phi_aux | 0, 1);
+  
+  // Gaussian process priors
+  target += normal_lpdf(gp_mu | 0, 1);
+  target += gamma_lpdf(gp_scale | 5, 5);
+  target += gamma_lpdf(gp_lenscale | 5, 5);
+
+  // Priors for random walk wave coefficients
+  target += normal_lpdf(tau[1] | 0, 1);
+  target += normal_lpdf(tau[2:N_wave] | tau[1:N_wave-1], 1);
+
+  // likelihood
+  target += poisson_log_lpmf(y | log_lambda);
+}
+
+generated quantities {
+  array[N] int yhat;   // posterior predictions
+  array[N] real log_lik; // log likelihood
+
+  for (n in 1:N) {
+    yhat[n] = poisson_log_rng(log_lambda[n]);
+    log_lik[n] = poisson_log_lpmf(y[n] | log_lambda[n]);
+  }
+}
