@@ -40,7 +40,7 @@ stan_model <- cmdstan_model(file.path("stan_models", paste0(config$model$name, "
 # ===== Run MCMC =====
 cat(" Running MCMC...\n")
 stan_fit <- stan_model$sample(data = stan_data,
-                              seed = config$mcmc$seed, 
+                              seed = config$mcmc$seed,
                               chains = config$mcmc$chains,
                               parallel_chains = config$mcmc$parallel_chains,
                               iter_warmup = config$mcmc$iter_warmup,

@@ -115,6 +115,7 @@ make_stan_data.longit <- function(data) {
   y_lag <- X[, "y_tot_lag"]
 
   r <- seq(1, max(r_idx) - 1)
+  w <- seq(1, max(w_idx))
 
   X_dummies <- X[, -c(1, 2, 3)]
 
@@ -130,6 +131,7 @@ make_stan_data.longit <- function(data) {
     w_idx = w_idx,
     r_idx = r_idx,
     y_lag = y_lag,
+    w = w,
     r = r,
     y = y
   )

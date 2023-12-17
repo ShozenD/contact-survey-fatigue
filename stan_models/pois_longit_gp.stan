@@ -37,7 +37,8 @@ data {
   array[N] int r_idx;    // Repeat variable (may be transformed in a non-linear fashion)
   vector[N] y_lag;       // lagged response variable (AR1)
 
-  array[N_repeat-1] real r; // A array of the number of repeats (standardized to 0-1)
+  array[N_wave] real w;     // A array of the number of waves
+  array[N_repeat-1] real r; // A array of the number of repeats
 
   array[N] int y;           // response variable
 }
@@ -52,10 +53,11 @@ parameters {
   vector[P] beta;            // dummy coefficients
 
   // Time varying coefficients
+  // vector[N_wave] tau;
   vector[N_wave] gp_time_mu;
   real<lower=0> gp_time_scale;
   real<lower=0> gp_time_lenscale;
-  
+
   vector[N_repeat-1] gp_repeat_mu;    // Gaussian process: auxiliary random variable
   real<lower=0> gp_repeat_scale;    // Gaussian process: scale parameter
   real<lower=0> gp_repeat_lenscale; // Gaussian process: lengthscale parameter
@@ -68,7 +70,7 @@ parameters {
 
 transformed parameters {
   vector[N_wave] tau;
-  tau = gp_matern32(w_idx, gp_time_mu, gp_time_scale, gp_time_lenscale, 1e-3); // Gaussian process
+  tau = gp_matern32(w, gp_time_mu, gp_time_scale, gp_time_lenscale, 1e-3); // Gaussian process
 
   vector[N_repeat] rho;
   rho[1] = 0;
@@ -90,7 +92,7 @@ model {
   target += normal_lpdf(phi_loc_hyper | 0, 10);
   target += normal_lpdf(phi_scale_hyper | 0, 1);
   target += normal_lpdf(phi_aux | 0, 1);
-  
+
   // Gaussian process priors
   target += normal_lpdf(gp_time_mu | 0, 1);
   target += gamma_lpdf(gp_time_scale | 5, 5);
@@ -101,8 +103,8 @@ model {
   target += gamma_lpdf(gp_repeat_lenscale | 5, 5);
 
   // Priors for random walk wave coefficients
-  target += normal_lpdf(tau[1] | 0, 1);
-  target += normal_lpdf(tau[2:N_wave] | tau[1:N_wave-1], 1);
+  // target += normal_lpdf(tau[1] | 0, 1);
+  // target += normal_lpdf(tau[2:N_wave] | tau[1:N_wave-1], 1);
 
   // likelihood
   target += poisson_log_lpmf(y | log_lambda);
