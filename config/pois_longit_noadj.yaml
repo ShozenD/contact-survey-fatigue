@@ -1,7 +1,7 @@
 out_dir: "/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
 
 model:
-  name: "pois_longit_gp"
+  name: "pois_longit_noadj"
   
 mcmc:
   seed: 0
