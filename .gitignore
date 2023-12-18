@@ -60,3 +60,5 @@ stan_models/pois_longit_invquad
 stan_models/pois_longit_iid
 stan_models/pois_longit_gp
 stan_models/pois_longit_gp
+stan_models/pois_longit_gp
+stan_models/pois_longit_gp
