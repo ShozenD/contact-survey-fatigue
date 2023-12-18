@@ -14,3 +14,6 @@ conda create -n contact-survey-fatigue r-base=4.1.3 -c conda-forge
 source activate contact-survey-fatigue
 ```
 Navigate to the root of the directory and execute `install-dependencies-hpc.R`
+```bash
+Rscript install-dependencies-hpc.R
+```
