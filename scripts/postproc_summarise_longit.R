@@ -14,8 +14,6 @@ option_list <- list(
 )
 cli_args <- parse_args(OptionParser(option_list = option_list))
 
-cli_args$config_file <- "pois_longit_gp.yaml"
-
 cat(" Loading data and configurations...\n")
 config <- read_yaml(file.path("config", cli_args$config_file))
 stan_data <- read_rds(file.path(config$out_dir, "stan_data", paste0(config$model$name, ".rds")))
@@ -40,3 +38,5 @@ po <- fit$draws(variables = c("alpha", "tau"), format = "matrix")
 po <- sweep(po[, -1], 1, po[, 1], "+")
 df_po_tau <- summarise_draws(po, ~quantile5(exp(.x)))
 saveRDS(df_po_tau, file.path(out_dir, "post_tau.rds"))
+
+cat(" DONE!\n")
