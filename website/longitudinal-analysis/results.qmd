@@ -1,0 +1,141 @@
+---
+title: "Results"
+author: "Shozen Dan"
+format: html
+editor: visual
+---
+
+```{r}
+# Load libraries
+library(readr)
+library(purrr)
+library(ggplot2)
+library(ggsci)
+library(dplyr)
+
+# Aesthetics
+ic_color_palette <- c("#00548F", "#7244E5", "#CC3DC7", "#CC3D5C", "#CC893D", "#A3CC3D", "#3DCC41", "#3DCCAD")
+```
+
+## Repeat Effect
+
+```{r}
+read_rho <- function(model_name){
+  in_dir <- "~/Imperial/contact-survey-fatigue-outputs/results"
+  df <- read_rds(file.path(in_dir, model_name, "post_rho.rds"))
+  df$model <- model_name
+  return(df)
+}
+
+models <- c("pois_longit_gp",
+            "pois_longit_logistic")
+df <- map_dfr(models, read_rho)
+df_iid <- read_rho("pois_longit_iid")
+df_iid$r <- df_iid$r + 1
+
+# Plot the results of the iid model using geom_point() and geom_linerange()
+ggplot(df, aes(r, `50%`)) +
+  
+  geom_ribbon(data = df %>% filter(model == "pois_longit_gp"),
+              aes(ymin = `2.5%`, ymax = `97.5%`, fill = "GP"), alpha = 0.3) +
+  geom_line(data = df %>% filter(model == "pois_longit_gp"), aes(color = "GP")) +
+  geom_line(data = df %>% filter(model == "pois_longit_logistic"), aes(color = "Logistic")) +
+  geom_ribbon(data = df %>% filter(model == "pois_longit_logistic"),
+              aes(ymin = `2.5%`, ymax = `97.5%`, fill = "Logistic"), alpha = 0.3) +
+  geom_linerange(data = df_iid, aes(ymin = `2.5%`, ymax = `97.5%`, color = "iid"), show.legend = F) +
+  geom_point(data = df_iid, aes(r, `50%`, color = "iid"),
+             fill = "white",
+             size = 3,
+             shape = 21) +
+  scale_color_manual(values = ic_color_palette[c(1,6,4)], breaks = c("iid", "GP", "Logistic")) +
+  scale_fill_manual(values = ic_color_palette[c(1,6,4)], breaks = c("iid", "GP", "Logistic")) +
+  scale_x_continuous(breaks = seq(0, 10, 2)) +
+  labs(x = "Number of repeated participation [r]", y = expression(rho(r))) +
+  theme_bw() +
+  guides(
+    color = guide_legend(
+      override.aes = list(shape = c(21,NA,NA),
+                          linetype = c(0, 1, 1),
+                          color = ic_color_palette[c(1,6,4)],
+                          fill = c("white", NA, NA)),
+      title = "Model"
+    ),
+    fill = "none"
+  )
+
+# ggsave("../../figures/repeat_effect.pdf", width = 15, height = 8, units = "cm")
+```
+
+The plot above shows the posterior means and 95% credible intervals of three different repeat effect models: *i.i.d.*, GP, and diminishing logistic function. The *i.i.d.* and GP models produced similar results where the effect of repeated participation steadily increase with each participation and shows signs of tapering off after the 9-th or 10-th repeat. The logistic model is a good approximation of the non-parametric alternatives and describes the effect of repeat with a smooth monotonically decreasing curve that saturates approximately at −1.5.
+
+### Half Saturation Point
+
+For the logistic function
+$$
+\rho(r \\ \alpha, \beta) = -\gamma\left(1 - \frac{\exp(\alpha)r^\beta}{1+\exp(\alpha)r^{\beta}}\right)
+$$
+the half saturation point is
+$$
+r = \exp\left( -\frac{\alpha}{\beta} \right)
+$$
+
+and the quantity
+$$
+1 - \frac{e\exp(\alpha)r^\beta}{1 + \exp(\alpha)r^\beta}
+$$
+can be interpreted as percent fatigue. By setting an appropriate cut-off (say 95%) we can make a decision on the number of repeats we model.
+
+## Effect on average number of contacts
+
+```{r}
+covimod_data <- read_rds("~/Imperial/contact-survey-fatigue/data/COVIMOD/COVIMOD_data_2022-12-29.rds")
+df_part <- covimod_data$part
+df_survey_date <- df_part %>% 
+  group_by(wave) %>%
+  summarise(survey_date = first(date))
+
+read_tau <- function(model_name){
+  in_dir <- "~/Imperial/contact-survey-fatigue-outputs/results"
+  df <- read_rds(file.path(in_dir, model_name, "post_tau.rds"))
+  df$model <- model_name
+  df$t <- seq(1, 10)
+  return(df)
+}
+
+models <- c("pois_longit_iid",
+            "pois_longit_gp",
+            "pois_longit_logistic",
+            "pois_longit_noadj")
+df <- map_dfr(models, read_tau)
+
+df <- df %>% 
+  mutate(
+    `2.5%` = ifelse(model != "pois_longit_logistic", NA, `2.5%`),
+    `25%` = ifelse(model != "pois_longit_logistic", NA, `25%`),
+    `75%` = ifelse(model != "pois_longit_logistic", NA, `75%`),
+    `97.5%` = ifelse(model != "pois_longit_logistic", NA, `97.5%`)
+  )
+
+df$model <- factor(df$model, levels = c("pois_longit_noadj",
+                                        "pois_longit_iid",
+                                        "pois_longit_gp",
+                                        "pois_longit_logistic"))
+
+df <- df %>% 
+  left_join(df_survey_date, by = join_by(t == wave))
+
+ggplot(df, aes(survey_date, `50%`)) +
+  geom_line(aes(color = model)) +
+  labs(x = "Wave", y = expression(exp(alpha + tau(t))), color = "Model") +
+  scale_x_date(expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, 2)) +
+  scale_color_manual(values = c("gray30", ic_color_palette[c(1,6,4)]),
+                     labels = c("No adjustment", "iid", "GP", "Logistic")) +
+  theme_bw() + 
+  theme(
+    legend.position = "bottom",
+    legend.margin = margin(t = -0.2, unit = "cm"),
+  )
+
+# ggsave("../../figures/time-trends.png", width = 15, height = 8, units = "cm")
+```

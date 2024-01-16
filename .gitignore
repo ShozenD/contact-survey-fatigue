@@ -53,3 +53,7 @@ data/*
 
 # Ignore all mac files
 *.DS_Store
+.Rproj.user
+.Rdata
+.DS_Store
+.quarto
