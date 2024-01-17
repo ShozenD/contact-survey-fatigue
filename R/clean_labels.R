@@ -1,22 +1,19 @@
-library(dplyr)
-library(stringr)
-
 clean_labels <- function(x) {
-  variable <- case_when(
-    str_detect(x, "^edu") ~ "Education",
-    str_detect(x, "^age_strata") ~ "Age group",
-    str_detect(x, "^gender") ~ "Gender",
-    str_detect(x, "^hh_size") ~ "Household size",
-    str_detect(x, "^job") ~ "Employment status"
+  variable <- dplyr::case_when(
+    stringr::str_detect(x, "^edu") ~ "Education",
+    stringr::str_detect(x, "^age_strata") ~ "Age group",
+    stringr::str_detect(x, "^gender") ~ "Gender",
+    stringr::str_detect(x, "^hh_size") ~ "Household size",
+    stringr::str_detect(x, "^job") ~ "Employment status"
   )
   variable <- factor(variable, levels = c("Age group", "Gender", "Household size", "Education", "Employment status"))
 
-  x <- str_remove(x, "edu_")
-  x <- str_remove(x, "age_strata_")
-  x <- str_remove(x, "gender_")
-  x <- str_remove(x, "job_")
+  x <- stringr::str_remove(x, "edu_")
+  x <- stringr::str_remove(x, "age_strata_")
+  x <- stringr::str_remove(x, "gender_")
+  x <- stringr::str_remove(x, "job_")
 
-  labels <- case_when(
+  labels <- dplyr::case_when(
     x == "Nursery or pre-school_0-5" ~ "Nursery/Pre-shool [0-5]",
     x == "Raised-at-home-toddler_0-5" ~ "Raised-at-home-toddler [0-5]",
     x == "Student/Pupil_0-5" ~ "Student [0-5]",

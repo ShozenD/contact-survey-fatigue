@@ -1,10 +1,8 @@
-library(ggplot2)
-library(ggridges)
-
-source("R/clean_labels.R")
-ic_color_palette <- c("#00548F", "#7244E5", "#CC3DC7", "#CC3D5C", "#CC893D", "#A3CC3D", "#3DCC41", "#3DCCAD")
+require(ggplot2)
+require(data.table)
 
 plot_repeat_effects <- function(fit, stan_data, config, outdir = NA) {
+
   if (stringr::str_detect(config$model$name, "[constrained|balanced]")) {
     plt <- plot_repeat_effects.constrained(fit, stan_data)
   } else {
@@ -20,6 +18,8 @@ plot_repeat_effects <- function(fit, stan_data, config, outdir = NA) {
 }
 
 plot_repeat_effects.constrained <- function(fit, stan_data) {
+  ic_color_palette <- c("#00548F", "#7244E5", "#CC3DC7", "#CC3D5C", "#CC893D", "#A3CC3D", "#3DCC41", "#3DCCAD")
+
   po_draws <- fit$draws(variables = "beta1", format = "matrix")
   po_summary <- apply(po_draws, 2, function(x) quantile((1 - exp(-x))*100, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))) # Convert to percentage decrease and compute quantile
   rownames(po_summary) <- c("CL", "Q25", "M", "Q75", "CU")

@@ -4,6 +4,7 @@
 #' @param outdir Directory to save outputs
 #'
 #' @return A summary table of estimates and diagnostics
+#' @export
 make_convergence_diagnostic_stats <- function(fit, outdir = NA) {
   fit_summary <- fit$summary()
 

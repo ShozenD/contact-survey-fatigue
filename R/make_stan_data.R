@@ -1,6 +1,3 @@
-source("R/make_design_matrices.R")
-source("R/add_horseshoe_params.R")
-
 make_stan_data <- function(data, config){
   if (stringr::str_detect(config$model$name, "_longit_")) {
     # Data processing for longitudinal models
@@ -16,7 +13,7 @@ make_stan_data <- function(data, config){
 
     } else if (stringr::str_detect(config$model$name, "[^pois|^rsb]")) {
       stan_data <- make_stan_data.pois(data)
-    } 
+    }
 
     # Add horseshoe parameters
     if (stringr::str_detect(config$model$name, "horseshoe")) {
