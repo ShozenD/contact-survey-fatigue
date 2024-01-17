@@ -1,9 +1,10 @@
 #!/bin/bash
 REPO_PATH="/rds/general/user/sd121/home/contact-survey-fatigue"
 OUT_PATH="/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
-CONFIG_FILE="fatigue-independent.yml"
+CONFIG_FILE="pois_longit_invquad.yaml"
 
 # Create main script
+# TODO: Don't recycle the environment from bayes-rate-consistency
 cat > "$OUT_PATH/fit-model-longit.pbs" <<EOF
 #!/bin/bash
 #PBS -l walltime=24:00:00
