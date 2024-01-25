@@ -53,6 +53,12 @@ data/*
 
 # Ignore all mac files
 *.DS_Store
+
+.Rproj.user
+.Rdata
+.DS_Store
+.quarto
+
 stan_models/pois_longit_se
 stan_models/pois_longit_noadj
 stan_models/pois_longit_logistic

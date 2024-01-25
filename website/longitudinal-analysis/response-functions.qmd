@@ -1,0 +1,119 @@
+---
+title: "Modeling the Repeat Effect"
+author: "Shozen Dan"
+format: html
+execute:
+  echo: true
+jupyter: python3
+---
+
+```{r}
+library(ggplot2)
+```
+
+## Setup
+Let $Y$ denote the number of reported contacts, and let $Y_{ij}$ be the $j$-th report by participant $i \in \{1, \ldots, N\}$. $\mathbfit{x}_{ij} = (x_{ij1}, \ldots, x_{ijp})^\top$ is a vector that includes the covariates age group, gender, household size, and education. We consider the following individual level model for the number of reported contacts:
+$$
+\begin{align}
+Y_{ij} &\sim \text{Poisson}(\lambda_{ij}) \\
+\log(\lambda_{ij}) &= \alpha + \mathbfit{x}_{ij}^\top\beta + \phi_i \log(Y_{i,j-1} + 1) + \tau(t(i,j)) + \rho(r(i,j))
+\end{align}
+$$
+Here, $\alpha$ is a global baseline term, and $\beta = (\beta_1, \ldots, \beta_p)^\top$ is a vector of coefficients for the characteristics of the individual. The following generic priors are placed on these parameters:
+$$
+\begin{split}
+\alpha &\sim \text{Normal}(0, 10), \\
+\beta_p &\overset{i.i.d}{\sim} \text{Normal}(0, 1) \quad p = 1,\ldots,P.
+\end{split}
+$$
+
+The contact count report from the same individual is likely to be heavily correlated due to unchaning household size, friend networks, work environments, etc. To account for this, we include an individual-level auto-correlation term $\phi_i \log(Y_{i,j-1} + 1)$ where $Y_{i,j-1}$ is the previous report by the participant. This is similar to specifying a $AR(1)$ covariance structure in a linear mixed model. The $\log$ transformation is to unsure that the covariate stays on the same scale as the linear predictor, and without it we would encounter numerical issues where the log rate term $\log(\lambda_{ij})$ is unrealistically large. We add $1$ to $Y_{i,j-1}$ since some participants report $0$ contacts at certain points. Since many participants have only a small number of reports in the dataset (e.g., 1 to 3), we place a hierarchical prior over $\phi_i$ so that information is shared amongst all individuals.
+$$
+\begin{split}
+\phi_i & \overset{i.i.d}{\sim} \text{Normal}(\mu_{\phi}, \sigma_{\phi}^2) \quad i = 1,\ldots,N , \\
+\mu_{\phi} &\sim \text{Normal}(0, 1), \\
+\sigma_{\phi} &\sim \text{Half-Normal}^+(0, 1) \\
+\end{split}
+$$
+
+The functions $t(i,j)$ and $r(i,j)$ maps the entry to its repective survey wave $t \in \{1,\ldots,T\}$ and number of repeat $r \in \{0, \ldots, R\}$. For instance if entry $j = 3$ of participant $i=1$ was the $2$nd entry by the participant reported during wave $3$ then, $t(i,j) = 3$ and $r(i,j) = 1$.
+
+$\tau(t)$ is the offset from the global baseline $\alpha$ at survey wave $t$, which we model using a zero-mean Gaussian process with a Matern 3/2 covariance kernel, i.e.,
+$$
+\tau(t) \sim \mathcal{GP}(0, K_{\tau}),
+$$
+where the covariance matrix $K_{\tau}$ is comprised of elements,
+$$
+k(t, t') = \sigma^2 \left(1 + \frac{\sqrt{3}|t - t'|}{l} \right) \exp\left( -\frac{\sqrt{3}|t - t'|}{l} \right).
+$$
+We chose this kernel to model the time-effect as the realisation from such a Gaussian process resembles a random walk, which places minimal assumptions about how the average number of contacts evolve with time.
+
+Finally, the function $\rho(r)$ models the effect of repeated participation on the number of reported contact counts. The following section will describe various ways we can model this function.
+
+## Response Functions
+There are many ways in which we may model the repeated participation effect $\rho(r)$. This section will describe the methods we tried, their assumptions, and their pros/cons.
+
+### i.i.d
+The simplest way of modeling the repeated participation effect would be to assume that they are independent and identically distributed, and place a standard normal prior over them:
+$$
+\rho(r) \overset{i.i.d.}{\sim} \text{Normal}(0, 1) \quad \text{for } r \in \{1,\ldots,R\}.
+$$
+This is a good descriptive model as it places no assumptions on the functional form of repeated participation effects and thus serves as a good baseline for all of our other models. However, the $i.i.d.$ assumption is likely to be incorrect as the effect of repeated participation should not be random by the number of participations. This model is also likely to suffer from estimation issues if the number of samples for say $r=10$ (a participant answered the survey 10 times) is samll, and perform poorly for out-of-sample predictions as it overfits the data. Additinally, it would be better if we could model the repeat effects with a parametric family of functions, as it reduces the number of parameters we have to estimate.
+
+### Gaussian processes
+We can also model the repeat effects using Gaussian process,
+$$
+\rho(r) \sim \mathcal{GP}(0, K_{\rho}) \quad \text{for } r \in \{1,\ldots,R\},
+$$
+where we use the squared exponential covariance kernel for simplicity.
+$$
+k_{\text{SE}}(r, r') = \sigma^2\exp \left(- \frac{(r - r')^2}{2l^2}\right)
+$$
+
+This is also a good descriptive model as the GPs are non-parametric and can model a wide variety of random functions. The downside to using GPs are that they are computationally expensive (compared to simple parametric functions) and also difficult to implement peers in non-statistics/ML fields.
+
+### Linear functions
+The simplest parametric family of function to model repeat effects would be linear functions,
+$$
+\rho(r) = -\beta_{\rho} r \quad \text{for } r \in \{1,\ldots,R\},
+$$
+where and $\beta_{\rho} \in \mathbb{R}+$ are parameters to be estimated from data. The merits of such a model lies in its ease of interpretability and implementation. Such a effect can be implemented in pretty much any standard regression library. However, it may be unreasonable to assume that the value of $\rho(r)$ decreases linearly with the number of repeats, i.e., we believe that the reduction of the number of reproted contacts should saturate at some point.
+```{r}
+beta <- 0.2
+x <- seq(0, 12)
+y <- -beta*x
+
+df = as.data.frame(x=x, y=y)
+
+ggplot(df, aes(x, y)) +
+  geom_point() +
+  geom_line() +
+  theme_bw()
+```
+
+### Saturating functions
+As there is a limit to the 
+#### Hill function
+The Hill function is frequently used to model saturation in fields such as chemistry, pharmacogentiks, and marketing research.
+$$
+\rho(r) = 1 - \gamma\left(\frac{1}{1 + (r/\mathcal{K})^{-\mathcal{S}}}\right)
+$$
+
+#### Logistic function
+A diminishing logistic function is an appealing choice for modeling the effect of fatigue for several reasons.
+$$
+\rho(r) = \gamma\left(1 - \frac{\exp(\alpha) r^\beta}{1 + \exp(\alpha)r^\beta} \right)
+$$
+It is easy to implement and less computationally expensive compared to *i.i.d.* and GP models, requiring only three parameters. The parameters $\gamma, \alpha, \beta$ and transformations of its parameters have intuitive interpretations. $\gamma$ can be interpreted as the effect size at saturation i.e. when $r$ is very large. The half saturation point, where the repeat effect reaches 50% saturation is given as,
+$$
+r = \exp\left( -\frac{\alpha}{\beta} \right)
+$$
+and the quantity
+$$
+1 - \frac{\exp(\alpha)r^\beta}{1 + \exp(\alpha)r^\beta}
+$$
+can be interpreted as percent fatigue. By setting an appropriate cut-off (say 95%) we can make a decision on the number of repeats we model.
+
+
+
+

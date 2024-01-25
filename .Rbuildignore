@@ -1,0 +1,6 @@
+^renv$
+^renv\.lock$
+^contact-survey-fatigue\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^website$

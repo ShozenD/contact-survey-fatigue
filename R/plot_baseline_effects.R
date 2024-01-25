@@ -1,10 +1,8 @@
-library(ggplot2)
-library(ggridges)
-
-source("R/clean_labels.R")
-ic_color_palette <- c("#00548F", "#7244E5", "#CC3DC7", "#CC3D5C", "#CC893D", "#A3CC3D", "#3DCC41", "#3DCCAD")
+require(ggplot2)
 
 plot_baseline_effects <- function(fit, stan_data, config, outdir = NA) {
+  ic_color_palette <- c("#00548F", "#7244E5", "#CC3DC7", "#CC3D5C", "#CC893D", "#A3CC3D", "#3DCC41", "#3DCCAD")
+
   # Extract posterior draws
   po_draws <- fit$draws(variables = "beta0", format = "matrix")
 
@@ -13,7 +11,7 @@ plot_baseline_effects <- function(fit, stan_data, config, outdir = NA) {
 
   # Change rownames
   rownames(po_summary) <- c("CL", "Q25", "M", "Q75", "CU")
-  df_po_summary <- as.data.table(t(po_summary))
+  df_po_summary <- data.table::as.data.table(t(po_summary))
 
   # Clean labels
   # If the model is poisson or rescaled beta

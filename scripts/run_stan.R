@@ -15,8 +15,6 @@ cat(" Loading data and configurations...\n")
 df <- read_rds("data/silver/covimod-wave-4.rds")
 config <- read_yaml(file.path("config", cli_args$config_file))
 
-
-
 cat(" Making stan data...\n")
 stan_data <- make_stan_data(df, config)
 

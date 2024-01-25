@@ -1,3 +1,28 @@
+#' Posterior Predictive Checks for Different Model Types
+#'
+#' This function performs posterior predictive checks on a fitted Stan model object.
+#' It supports different types of models (zero-inflated, Poisson, etc.) and
+#' provides a warning for unsupported model types.
+#'
+#' @param fit A Stan model fit object.
+#' @param stan_data A list or data frame containing the data used in the
+#'    model fitting process. The structure should align with what is expected
+#'    by the specific model type.
+#' @param config A configuration list.
+#' @param outdir An optional directory path as a character string where the
+#'    output will be saved. If `NA` (default), the function emits a warning and
+#'    does not save the output.
+#'
+#' @return Returns a data table with the results of the posterior predictive checks.
+#'    The exact structure of this table depends on the type of model used.
+#'
+#' @details The function checks the `model$name` field in the `config` parameter
+#'    to decide which type of posterior predictive check to perform. Currently,
+#'    it supports zero-inflated models (prefix "zi"), Poisson models (excluding
+#'    those with prefixes "pois" and "rsb"), and has a placeholder for logistic
+#'    regression models (prefix "logit"), which is not yet implemented.
+#'
+#' @export
 posterior_predictive_checks <- function(fit, stan_data, config, outdir = NA) {
 
   if (stringr::str_detect(config$model$name, "_longit_")) { # Longitudinal model

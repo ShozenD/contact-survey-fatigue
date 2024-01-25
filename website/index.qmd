@@ -1,0 +1,33 @@
+---
+title: "Contact Survey Fatigue"
+author: "Shozen Dan"
+format: html
+execute:
+  eval: false
+jupyter: python3
+---
+
+## Background
+Welcome to the documentation for the Contact Survey Fatigue project. Longitudinal social contact surveys administered during COVID-19 (2020 to 2021) such as CoMix and COVIMOD are plagued by survey fatigue. This is when participants become complacent or tired answering the same survey over and over again, and as a result, result in fewer reported contacts. This issue biases the statistical estimates for the average number of contact between individuals which could result in inaccurate inferences of transmission risk. This project examines:
+
+1. Factors that influence survey fatigue (age, gender, occupations)
+2. Statistical methods for adjusting for survey fatigue
+
+## Installation
+Clone the repository to your chosen directory on your local machine or server.
+```{bash}
+git clone git@github.com:ShozenD/contact-survey-fatigue.git
+```
+
+## Quick Start
+### For Imperial HPC
+For those using Imperial's High Performance Computing Clusters, begin by following the instructions in the Conda application guide to setup Conda for your HPC account. Assuming you have done this, begin by creating an environment into which we will install the required R and dependencies.
+```{bash}
+module load anaconda3/personal
+conda create -n contact-survey-fatigue r-base=4.1.3 -c conda-forge
+source activate contact-survey-fatigue
+```
+Navigate to the root of the directory and execute `install-dependencies-hpc.R`
+```{bash}
+Rscript install-dependencies-hpc.R
+```

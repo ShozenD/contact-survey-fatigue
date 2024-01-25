@@ -1,0 +1,107 @@
+[
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About",
+    "section": "",
+    "text": "About this site"
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Contact Survey Fatigue",
+    "section": "",
+    "text": "Welcome to the documentation for the Contact Survey Fatigue project. Longitudinal social contact surveys administered during COVID-19 (2020 to 2021) such as CoMix and COVIMOD are plagued by survey fatigue. This is when participants become complacent or tired answering the same survey over and over again, and as a result, result in fewer reported contacts. This issue biases the statistical estimates for the average number of contact between individuals which could result in inaccurate inferences of transmission risk. This project examines:\n\nFactors that influence survey fatigue (age, gender, occupations)\nStatistical methods for adjusting for survey fatigue"
+  },
+  {
+    "objectID": "index.html#background",
+    "href": "index.html#background",
+    "title": "Contact Survey Fatigue",
+    "section": "",
+    "text": "Welcome to the documentation for the Contact Survey Fatigue project. Longitudinal social contact surveys administered during COVID-19 (2020 to 2021) such as CoMix and COVIMOD are plagued by survey fatigue. This is when participants become complacent or tired answering the same survey over and over again, and as a result, result in fewer reported contacts. This issue biases the statistical estimates for the average number of contact between individuals which could result in inaccurate inferences of transmission risk. This project examines:\n\nFactors that influence survey fatigue (age, gender, occupations)\nStatistical methods for adjusting for survey fatigue"
+  },
+  {
+    "objectID": "index.html#setup",
+    "href": "index.html#setup",
+    "title": "Contact Survey Fatigue",
+    "section": "Setup",
+    "text": "Setup"
+  },
+  {
+    "objectID": "index.html#installation",
+    "href": "index.html#installation",
+    "title": "Contact Survey Fatigue",
+    "section": "Installation",
+    "text": "Installation\nClone the repository to your chosen directory on your local machine or server.\ngit clone git@github.com:ShozenD/contact-survey-fatigue.git"
+  },
+  {
+    "objectID": "index.html#quick-start",
+    "href": "index.html#quick-start",
+    "title": "Contact Survey Fatigue",
+    "section": "Quick Start",
+    "text": "Quick Start\n\nFor Imperial HPC\nFor those using Imperial’s High Performance Computing Clusters, begin by following the instructions in the Conda application guide to setup Conda for your HPC account. Assuming you have done this, begin by creating an environment into which we will install the required R and dependencies.\nmodule load anaconda3/personal\nconda create -n contact-survey-fatigue r-base=4.1.3 -c conda-forge\nsource activate contact-survey-fatigue\nNavigate to the root of the directory and execute install-dependencies-hpc.R\nRscript install-dependencies-hpc.R"
+  },
+  {
+    "objectID": "longitudinal-analysis/response-functions.html",
+    "href": "longitudinal-analysis/response-functions.html",
+    "title": "Modeling the Repeat Effect",
+    "section": "",
+    "text": "library(ggplot2)"
+  },
+  {
+    "objectID": "longitudinal-analysis/response-functions.html#setup",
+    "href": "longitudinal-analysis/response-functions.html#setup",
+    "title": "Modeling the Repeat Effect",
+    "section": "Setup",
+    "text": "Setup\nLet \\(Y\\) denote the number of reported contacts, and let \\(Y_{ij}\\) be the \\(j\\)-th report by participant \\(i \\in \\{1, \\ldots, N\\}\\). \\(\\mathbfit{x}_{ij} = (x_{ij1}, \\ldots, x_{ijp})^\\top\\) is a vector that includes the covariates age group, gender, household size, and education. We consider the following individual level model for the number of reported contacts: \\[\n\\begin{align}\nY_{ij} &\\sim \\text{Poisson}(\\lambda_{ij}) \\\\\n\\log(\\lambda_{ij}) &= \\alpha + \\mathbfit{x}_{ij}^\\top\\beta + \\phi_i \\log(Y_{i,j-1} + 1) + \\tau(t(i,j)) + \\rho(r(i,j))\n\\end{align}\n\\] Here, \\(\\alpha\\) is a global baseline term, and \\(\\beta = (\\beta_1, \\ldots, \\beta_p)^\\top\\) is a vector of coefficients for the characteristics of the individual. The following generic priors are placed on these parameters: \\[\n\\begin{split}\n\\alpha &\\sim \\text{Normal}(0, 10), \\\\\n\\beta_p &\\overset{i.i.d}{\\sim} \\text{Normal}(0, 1) \\quad p = 1,\\ldots,P.\n\\end{split}\n\\]\nThe contact count report from the same individual is likely to be heavily correlated due to unchaning household size, friend networks, work environments, etc. To account for this, we include an individual-level auto-correlation term \\(\\phi_i \\log(Y_{i,j-1} + 1)\\) where \\(Y_{i,j-1}\\) is the previous report by the participant. This is similar to specifying a \\(AR(1)\\) covariance structure in a linear mixed model. The \\(\\log\\) transformation is to unsure that the covariate stays on the same scale as the linear predictor, and without it we would encounter numerical issues where the log rate term \\(\\log(\\lambda_{ij})\\) is unrealistically large. We add \\(1\\) to \\(Y_{i,j-1}\\) since some participants report \\(0\\) contacts at certain points. Since many participants have only a small number of reports in the dataset (e.g., 1 to 3), we place a hierarchical prior over \\(\\phi_i\\) so that information is shared amongst all individuals. \\[\n\\begin{split}\n\\phi_i & \\overset{i.i.d}{\\sim} \\text{Normal}(\\mu_{\\phi}, \\sigma_{\\phi}^2) \\quad i = 1,\\ldots,N , \\\\\n\\mu_{\\phi} &\\sim \\text{Normal}(0, 1), \\\\\n\\sigma_{\\phi} &\\sim \\text{Half-Normal}^+(0, 1) \\\\\n\\end{split}\n\\]\nThe functions \\(t(i,j)\\) and \\(r(i,j)\\) maps the entry to its repective survey wave \\(t \\in \\{1,\\ldots,T\\}\\) and number of repeat \\(r \\in \\{0, \\ldots, R\\}\\). For instance if entry \\(j = 3\\) of participant \\(i=1\\) was the \\(2\\)nd entry by the participant reported during wave \\(3\\) then, \\(t(i,j) = 3\\) and \\(r(i,j) = 1\\).\n\\(\\tau(t)\\) is the offset from the global baseline \\(\\alpha\\) at survey wave \\(t\\), which we model using a zero-mean Gaussian process with a Matern 3/2 covariance kernel, i.e., \\[\n\\tau(t) \\sim \\mathcal{GP}(0, K_{\\tau}),\n\\] where the covariance matrix \\(K_{\\tau}\\) is comprised of elements, \\[\nk(t, t') = \\sigma^2 \\left(1 + \\frac{\\sqrt{3}|t - t'|}{l} \\right) \\exp\\left( -\\frac{\\sqrt{3}|t - t'|}{l} \\right).\n\\] We chose this kernel to model the time-effect as the realisation from such a Gaussian process resembles a random walk, which places minimal assumptions about how the average number of contacts evolve with time.\nFinally, the function \\(\\rho(r)\\) models the effect of repeated participation on the number of reported contact counts. The following section will describe various ways we can model this function."
+  },
+  {
+    "objectID": "longitudinal-analysis/response-functions.html#model-description",
+    "href": "longitudinal-analysis/response-functions.html#model-description",
+    "title": "Response Functions",
+    "section": "",
+    "text": "Let \\(Y\\) denote the number of reported contacts, and let \\(Y_{ij}\\) be the \\(j\\)-th report by participant \\(i \\in \\{1, \\ldots, N\\}\\). \\(\\mathbfit{x}_{ij} = (x_{ij1}, \\ldots, x_{ijp})^\\top\\) is a vector that includes the covariates age group, gender, household size, and education. We consider the following individual level model for the number of reported contacts: \\[\n\\begin{align}\nY_{ij} &\\sim \\text{Poisson}(\\lambda_{ij}) \\\\\n\\log(\\lambda_{ij}) &= \\alpha + \\mathbfit{x}_{ij}^\\top\\beta + \\phi_i \\log(Y_{i,j-1} + 1) + \\tau(t(i,j)) + \\rho(r(i,j))\n\\end{align}\n\\] Here, \\(\\alpha\\) is a global baseline term, and \\(\\beta = (\\beta_1, \\ldots, \\beta_p)^\\top\\) is a vector of coefficients for the characteristics of the individual. The following generic priors are placed on these parameters: \\[\n\\begin{split}\n\\alpha &\\sim \\text{Normal}(0, 10), \\\\\n\\beta_p &\\overset{i.i.d}{\\sim} \\text{Normal}(0, 1) \\quad p = 1,\\ldots,P.\n\\end{split}\n\\]\nThe contact count report from the same individual is likely to be heavily correlated due to unchaning household size, friend networks, work environments, etc. To account for this, we include an individual-level auto-correlation term \\(\\phi_i \\log(Y_{i,j-1} + 1)\\) where \\(Y_{i,j-1}\\) is the previous report by the participant. This is similar to specifying a \\(AR(1)\\) covariance structure in a linear mixed model. The \\(\\log\\) transformation is to unsure that the covariate stays on the same scale as the linear predictor, and without it we would encounter numerical issues where the log rate term \\(\\log(\\lambda_{ij})\\) is unrealistically large. We add \\(1\\) to \\(Y_{i,j-1}\\) since some participants report \\(0\\) contacts at certain points. Since many participants have only a small number of reports in the dataset (e.g., 1 to 3), we place a hierarchical prior over \\(\\phi_i\\) so that information is shared amongst all individuals. \\[\n\\begin{split}\n\\phi_i & \\overset{i.i.d}{\\sim} \\text{Normal}(\\mu_{\\phi}, \\sigma_{\\phi}^2) \\quad i = 1,\\ldots,N , \\\\\n\\mu_{\\phi} &\\sim \\text{Normal}(0, 1), \\\\\n\\sigma_{\\phi} &\\sim \\text{Half-Normal}^+(0, 1) \\\\\n\\end{split}\n\\]\nThe functions \\(t(i,j)\\) and \\(r(i,j)\\) maps the entry to its repective survey wave \\(t \\in \\{1,\\ldots,T\\}\\) and number of repeat \\(r \\in \\{0, \\ldots, R\\}\\). For instance if entry \\(j = 3\\) of participant \\(i=1\\) was the \\(2\\)nd entry by the participant reported during wave \\(3\\) then, \\(t(i,j) = 3\\) and \\(r(i,j) = 1\\).\n\\(\\tau(t)\\) is the offset from the global baseline \\(\\alpha\\) at survey wave \\(t\\), which we model using a zero-mean Gaussian process with a Matern 3/2 covariance kernel, i.e., \\[\n\\tau(t) \\sim \\mathcal{GP}(0, K_{\\tau}),\n\\] where the covariance matrix \\(K_{\\tau}\\) is comprised of elements, \\[\nk(t, t') = \\sigma^2 \\left(1 + \\frac{\\sqrt{3}|t - t'|}{l} \\right) \\exp\\left( -\\frac{\\sqrt{3}|t - t'|}{l} \\right).\n\\] We chose this kernel to model the time-effect as the realisation from such a Gaussian process resembles a random walk, which places minimal assumptions about how the average number of contacts evolve with time.\nFinally,"
+  },
+  {
+    "objectID": "longitudinal-analysis/response-functions.html#modeling-the-repeat-effect",
+    "href": "longitudinal-analysis/response-functions.html#modeling-the-repeat-effect",
+    "title": "Response Functions",
+    "section": "Modeling the Repeat Effect",
+    "text": "Modeling the Repeat Effect\nThere are many ways in which we may model the repeated participation effect \\(\\rho(r)\\). This section will describe the methods we tried, their assumptions, and their pros/cons.\n\ni.i.d\nThe simplest way of modeling the repeated participation effect would be to assume that they are independent and identically distributed, and place a standard normal prior over them: \\[\n\\rho(r) \\overset{i.i.d.}{\\sim} \\text{Normal}(0, 1) \\quad \\text{for } r \\in \\{1,\\ldots,R\\}.\n\\]"
+  },
+  {
+    "objectID": "longitudinal-analysis/response-functions.html#modeling-the-repeat-effect-rho",
+    "href": "longitudinal-analysis/response-functions.html#modeling-the-repeat-effect-rho",
+    "title": "Response Functions",
+    "section": "Modeling the Repeat Effect \\(\\rho\\)",
+    "text": "Modeling the Repeat Effect \\(\\rho\\)"
+  },
+  {
+    "objectID": "longitudinal-analysis/response-functions.html#response-functions",
+    "href": "longitudinal-analysis/response-functions.html#response-functions",
+    "title": "Modeling the Repeat Effect",
+    "section": "Response Functions",
+    "text": "Response Functions\nThere are many ways in which we may model the repeated participation effect \\(\\rho(r)\\). This section will describe the methods we tried, their assumptions, and their pros/cons.\n\ni.i.d\nThe simplest way of modeling the repeated participation effect would be to assume that they are independent and identically distributed, and place a standard normal prior over them: \\[\n\\rho(r) \\overset{i.i.d.}{\\sim} \\text{Normal}(0, 1) \\quad \\text{for } r \\in \\{1,\\ldots,R\\}.\n\\] This is a good descriptive model as it places no assumptions on the functional form of repeated participation effects and thus serves as a good baseline for all of our other models. However, the \\(i.i.d.\\) assumption is likely to be incorrect as the effect of repeated participation should not be random by the number of participations. This model is also likely to suffer from estimation issues if the number of samples for say \\(r=10\\) (a participant answered the survey 10 times) is samll, and perform poorly for out-of-sample predictions as it overfits the data. Additinally, it would be better if we could model the repeat effects with a parametric family of functions, as it reduces the number of parameters we have to estimate.\n\n\nGaussian processes\nWe can also model the repeat effects using Gaussian process, \\[\n\\rho(r) \\sim \\mathcal{GP}(0, K_{\\rho}) \\quad \\text{for } r \\in \\{1,\\ldots,R\\},\n\\] where we use the squared exponential covariance kernel for simplicity. \\[\nk_{\\text{SE}}(r, r') = \\sigma^2\\exp \\left(- \\frac{(r - r')^2}{2l^2}\\right)\n\\]\nThis is also a good descriptive model as the GPs are non-parametric and can model a wide variety of random functions. The downside to using GPs are that they are computationally expensive (compared to simple parametric functions) and also difficult to implement peers in non-statistics/ML fields.\n\n\nLinear functions\nThe simplest parametric family of function to model repeat effects would be linear functions, \\[\n\\rho(r) = -\\beta_{\\rho} r \\quad \\text{for } r \\in \\{1,\\ldots,R\\},\n\\] where and \\(\\beta_{\\rho} \\in \\mathbb{R}+\\) are parameters to be estimated from data. The merits of such a model lies in its ease of interpretability and implementation. Such a effect can be implemented in pretty much any standard regression library. However, it may be unreasonable to assume that the value of \\(\\rho(r)\\) decreases linearly with the number of repeats, i.e., we believe that the reduction of the number of reproted contacts should saturate at some point.\nbeta &lt;- 0.2\nx &lt;- seq(0, 12)\ny &lt;- -beta*x\n\ndf = as.data.frame(x=x, y=y)\n\nggplot(df, aes(x, y)) +\n  geom_point() +\n  geom_line() +\n  theme_bw()\n\n\nConcave functions\n\nLogarithmic model\n\\[\n\\rho(r) = -(\\alpha_{\\rho} + \\beta_{\\rho}\\log(r))\n\\]\n\n\nPower model\n\\[\n\\rho(r) = - \\exp(\\alpha)X^{\\beta}\n\\]\n\n\n\nS-shaped functions\n\nHill function\n\\[\n\\rho(r) = \\frac{1}{1 + (r/\\mathcal{K})^{-\\mathcal{S}}}\n\\]\n\n\nLogistic function\n\\[\n\\rho(r) = \\frac{e^\\alpha r^\\beta}{1 + e^\\alpha r^\\beta}\n\\]"
+  },
+  {
+    "objectID": "longitudinal-analysis/results.html",
+    "href": "longitudinal-analysis/results.html",
+    "title": "Results",
+    "section": "",
+    "text": "# Load libraries\nlibrary(readr)\nlibrary(purrr)\nlibrary(ggplot2)\nlibrary(ggsci)\nlibrary(dplyr)\n\n\nAttaching package: 'dplyr'\n\n\nThe following objects are masked from 'package:stats':\n\n    filter, lag\n\n\nThe following objects are masked from 'package:base':\n\n    intersect, setdiff, setequal, union"
+  },
+  {
+    "objectID": "longitudinal-analysis/results.html#repeat-effect",
+    "href": "longitudinal-analysis/results.html#repeat-effect",
+    "title": "Results",
+    "section": "Repeat Effect",
+    "text": "Repeat Effect\n\nread_rho &lt;- function(model_name){\n  in_dir &lt;- \"~/Imperial/contact-survey-fatigue-outputs/results\"\n  df &lt;- read_rds(file.path(in_dir, model_name, \"post_rho.rds\"))\n  df$model &lt;- model_name\n  return(df)\n}\n\nmodels &lt;- c(\"pois_longit_gp\",\n            \"pois_longit_logistic\")\ndf &lt;- map_dfr(models, read_rho)\ndf_iid &lt;- read_rho(\"pois_longit_iid\")\ndf_iid$r &lt;- df_iid$r + 1\n\nggplot(df, aes(r, `50%`)) +\n  geom_line(aes(color = model)) +\n  geom_ribbon(aes(ymin = `2.5%`, ymax = `97.5%`, fill = model), alpha = 0.2) + \n  geom_ribbon(aes(ymin = `25%`, ymax = `75%`, fill = model), alpha = 0.4) + \n  geom_point(data = df_iid, aes(r, `50%`), shape = 21) +\n  geom_linerange(data = df_iid, aes(ymin = `2.5%`, ymax = `97.5%`)) +\n  labs(x = \"No. of repeated participation [r]\", y = expression(rho(r))) +\n  scale_x_continuous(expand = c(0, 0), breaks = seq(0, 11)) +\n  scale_color_npg() +\n  scale_fill_npg() +\n  theme_bw()\n\n\n\n\nThe plot above shows the posterior means and credible intervals of three different repeat effect models: *i.i.d*, Gaussian process, and diminishing logistic function.\n\nHalf Saturation Point\nFor the logistic function \\[\n\\rho(r \\| \\alpha, \\beta) = -\\gamma\\left(1 - \\frac{\\exp(\\alpha)r^\\beta}{1+\\exp(\\alpha)r^{\\beta}}\\right)\n\\] the half saturation point is \\[\nr = \\exp\\left( -\\frac{\\alpha}{\\beta} \\right)\n\\]\nand the quantity \\[\n1 - \\frac{e\\exp(\\alpha)r^\\beta}{1 + \\exp(\\alpha)r^\\beta}\n\\] can be interpreted as percent fatigue. By setting an appropriate cut-off (say 95%) we can make a decision on the number of repeats we model."
+  },
+  {
+    "objectID": "longitudinal-analysis/results.html#effect-on-average-number-of-contacts",
+    "href": "longitudinal-analysis/results.html#effect-on-average-number-of-contacts",
+    "title": "Results",
+    "section": "Effect on average number of contacts",
+    "text": "Effect on average number of contacts\n\nread_tau &lt;- function(model_name){\n  in_dir &lt;- \"~/Imperial/contact-survey-fatigue-outputs/results\"\n  df &lt;- read_rds(file.path(in_dir, model_name, \"post_tau.rds\"))\n  df$model &lt;- model_name\n  df$t &lt;- seq(1, 10)\n  return(df)\n}\n\nmodels &lt;- c(\"pois_longit_iid\",\n            \"pois_longit_gp\",\n            \"pois_longit_logistic\",\n            \"pois_longit_noadj\")\ndf &lt;- map_dfr(models, read_tau)\n\nggplot(df, aes(t, `50%`)) +\n  #geom_ribbon(aes(ymin = `2.5%`, ymax = `97.5%`, fill = model), alpha = 0.2) + \n  #geom_ribbon(aes(ymin = `25%`, ymax = `75%`, fill = model), alpha = 0.4) + \n  geom_line(aes(color = model)) +\n  labs(x = \"Wave\", y = expression(alpha + tau(t))) +\n  scale_x_continuous(expand = c(0, 0), breaks = seq(0, 11)) +\n  ggsci::scale_color_nejm() +\n  theme_bw()\n\n\n\n\nWhen you click the Render button a document will be generated that includes both content and the output of embedded code. You can embed code like this\nYou can add options to executable code like this\n\n\n[1] 4\n\n\nThe echo: false option disables the printing of code (only output is displayed)."
+  }
+]
