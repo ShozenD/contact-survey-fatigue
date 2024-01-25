@@ -45,6 +45,7 @@ data {
 
 transformed data {
   array[N_wave] real w_std = to_array_1d((w - mean(w)) / sd(w));
+  vector[N] log_y_lag = log(y_lag + 1);
 }
 
 parameters {
@@ -55,6 +56,8 @@ parameters {
   vector[N_wave] gp_time_mu;      // GP mean
   real<lower=0> gp_time_scale;    // GP scale
   real<lower=0> gp_time_lenscale; // GP lengthscale
+
+  vector[N_repeat-1] rho0;   // Repeat effect
 }
 
 transformed parameters {
@@ -62,13 +65,14 @@ transformed parameters {
   vector[N_wave] tau;
   tau = gp_matern32(w_std, gp_time_mu, gp_time_scale, gp_time_lenscale, 1e-3); // Matern 3/2 Gaussian process
 
-  // Repeat effect
+  // Repeat effect (A somewhat hacky way to pad the vector with a zero) 
   vector[N_repeat] rho;
   rho[1] = 0;
+  rho[2:N_repeat] = rho0;
 
   // Linear predictor
   vector[N] log_lambda;
-  log_lambda = alpha + X * beta + tau[w_idx] + phi[part_idx] .* y_lag + rho[r_idx];
+  log_lambda = alpha + X * beta + tau[w_idx] + phi[part_idx] .* log_y_lag + rho[r_idx];
 }
 
 model {
@@ -83,7 +87,7 @@ model {
   target += inv_gamma_lpdf(gp_time_lenscale | 5, 5);
 
   // Repeat effect
-  target += normal_lpdf(rho[2:N_repeat] | 0, 1);
+  target += normal_lpdf(rho0 | 0, 1);
 
   // likelihood
   target += poisson_log_lpmf(y | log_lambda);

@@ -25,8 +25,8 @@ functions {
   }
 
   /* Logistic function */
-  vector logistic(vector x, real alpha, real beta, real gamma) {
-    return - gamma * exp(alpha) * x.^beta ./ (1 + exp(alpha) * x.^beta);
+  vector logistic(vector x, real alpha, real beta) {
+    return exp(alpha) * x.^beta ./ (1 + exp(alpha) * x.^beta);
   }
 }
 
@@ -42,13 +42,19 @@ data {
   array[N] int r_idx;    // Repeat variable (may be transformed in a non-linear fashion)
   vector[N] y_lag;       // lagged response variable (AR1)
 
-  array[N_wave] real w;     // A array of the number of waves
+  vector[N_wave] w;     // A array of the number of waves
   vector[N_repeat-1] r; // A array of the number of repeats
 
   array[N] int y;           // response variable
 }
 
 transformed data{
+  // Standardize wave variable
+  array[N_wave] real w_std = to_array_1d((w - mean(w)) / sd(w));
+
+  // Standardize repeat variable
+  vector[N_repeat-1] r_norm = r / max(r);
+
   // Adhoc fix to prevent overflow (not very elegant...)
   vector[N] log_y_lag = log(y_lag + 1);
 }
@@ -75,11 +81,11 @@ parameters {
 
 transformed parameters {
   vector[N_wave] tau;
-  tau = gp_matern32(w, gp_time_mu, gp_time_scale, gp_time_lenscale, 1e-3); // Gaussian process
+  tau = gp_matern32(w_std, gp_time_mu, gp_time_scale, gp_time_lenscale, 1e-3); // Gaussian process
 
   vector[N_repeat] rho;
   rho[1] = 0;
-  rho[2:N_repeat] = logistic(r, alpha_repeat, beta_repeat, gamma_repeat); // Gaussian process
+  rho[2:N_repeat] = - gamma_repeat * logistic(r_norm, alpha_repeat, beta_repeat);
 
   vector[N_part] phi = (phi_loc_hyper + phi_aux) * phi_scale_hyper;
 
@@ -103,9 +109,9 @@ model {
   target += gamma_lpdf(gp_time_scale | 5, 5);
   target += gamma_lpdf(gp_time_lenscale | 5, 5);
 
-  target += normal_lpdf(alpha_repeat | 0, 3);
-  target += normal_lpdf(beta_repeat | 0, 3);
-  target += normal_lpdf(gamma_repeat | 0, 1);
+  target += inv_gamma_lpdf(alpha_repeat | 1, 1);
+  target += inv_gamma_lpdf(beta_repeat | 1, 1);
+  target += inv_gamma_lpdf(gamma_repeat | 1, 1);
 
   // likelihood
   target += poisson_log_lpmf(y | log_lambda);

@@ -1,7 +1,7 @@
 #!/bin/bash
 REPO_PATH="/rds/general/user/sd121/home/contact-survey-fatigue"
 OUT_PATH="/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
-CONFIG_FILE="pois_longit_gp.yaml"
+CONFIG_FILE="pois_longit_noadj.yaml"
 
 # Create main script
 # TODO: Don't recycle the environment from bayes-rate-consistency

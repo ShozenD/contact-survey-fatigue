@@ -1,7 +1,7 @@
 #!/bin/bash
 REPO_PATH="/rds/general/user/sd121/home/contact-survey-fatigue"
 OUT_PATH="/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
-CONFIG_FILE="pois_longit_noadj.yaml"
+CONFIG_FILE="pois_longit_iid.yaml"
 
 # Create main script
 # TODO: Don't recycle the environment from bayes-rate-consistency
@@ -18,6 +18,9 @@ cd $REPO_PATH
 
 # Run Stan model
 Rscript scripts/run_stan_longit.R --config "$CONFIG_FILE"
+
+# Diagnosis
+Rscript scripts/postproc_checks_longit.R --config "$CONFIG_FILE"
 
 # Postprocess
 Rscript scripts/postproc_summarise_longit.R --config "$CONFIG_FILE"

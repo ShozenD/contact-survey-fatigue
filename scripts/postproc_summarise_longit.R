@@ -2,6 +2,7 @@
 library(yaml)
 library(optparse)
 library(readr)
+library(stringr)
 library(data.table)
 library(reshape2)
 library(cmdstanr)
@@ -29,9 +30,11 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 quantile5 <- function(x) quantile(x, probs = c(.025, .25, .5, .75, .975))
 
 # Extract posterior samples of rho (the repeat effect)
-df_po_rho <- summarise_draws(fit$draws(variables = "rho"), ~quantile5(.x))
-df_po_rho$r <- seq(0, nrow(df_po_rho) - 1)
-saveRDS(df_po_rho, file.path(out_dir, "post_rho.rds"))
+if (!str_detect(config$model$name, "_noadj")) { # If the model adjust for the repeat effect
+  df_po_rho <- summarise_draws(fit$draws(variables = "rho"), ~quantile5(.x))
+  df_po_rho$r <- seq(0, nrow(df_po_rho) - 1)
+  saveRDS(df_po_rho, file.path(out_dir, "post_rho.rds"))
+}
 
 # Extract posterior samples of tau (time effect)
 po <- fit$draws(variables = c("alpha", "tau"), format = "matrix")
