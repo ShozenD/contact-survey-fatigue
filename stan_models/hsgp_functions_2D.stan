@@ -10,19 +10,39 @@ matrix sqrt_LAMBDA_2D(real L1, real L2, matrix S) {
   return sqrt_LAMBDA;
 }
 
-real spd_se_2d(real alpha, real rho1, real rho2, row_vector sqrt_lambda) {
-  return alpha * 2 * pi() * rho1 * rho2 * square(exp(-0.5 * dot_product(square([rho1, rho2]'), to_vector(sqrt_lambda))));
+// ========= Spectral density functions =========
+// Squared exponential kernel
+real spd_se_2d(real alpha, real rho1, real rho2, row_vector sq_omega) {
+  return alpha * 2 * pi() * rho1 * rho2 * square(exp(-0.5 * dot_product(square([rho1, rho2]'), to_vector(sq_omega))));
 }
 
 vector diagSPD_EQ_2D(real alpha, real rho1, real rho2, matrix sqrt_LAMBDA) {
   int J = rows(sqrt_LAMBDA);
   vector[J] diagSPD;
   for (j in 1:J) {
-    diagSPD[j] = sqrt(spd_se_2d(alpha, rho1, rho2, sqrt_LAMBDA[j]));
+    diagSPD[j] = sqrt(spd_se_2d(alpha, rho1, rho2, square(sqrt_LAMBDA[j])));
   }
 
   return diagSPD;
 }
+
+// Matern 5/2 kernel
+real spd_m52_2d(real alpha, real rho1, real rho2, row_vector sq_omega) {
+  real d = dot_product(square([rho1, rho2]'), to_vector(sq_omega));
+  return alpha * 10 * pi() * 5.0^(5.0/2.0) * rho1 * rho2 * (5 + d)^(-7.0/2.0);
+}
+
+vector diagSPD_m52_2d(real alpha, real rho1, real rho2, matrix sqrt_LAMBDA) {
+  int J = rows(sqrt_LAMBDA);
+  vector[J] diagSPD;
+  for (j in 1:J) {
+    diagSPD[j] = sqrt(spd_m52_2d(alpha, rho1, rho2, square(sqrt_LAMBDA[j])));
+  }
+
+  return diagSPD;
+}
+
+// ========== Basis functions ==========
 
 matrix PHI_2D(real L1, real L2, matrix S, matrix X) {
 	int N = rows(X);
@@ -51,3 +71,8 @@ vector hsgp_se_2d(vector beta, real alpha, real rho1, real rho2, matrix sqrt_LAM
   return PHI * (diagSPD .* beta);
 }
 
+vector hsgp_m52_2d(vector beta, real alpha, real rho1, real rho2, matrix sqrt_LAMBDA, matrix PHI) {
+  vector[rows(sqrt_LAMBDA)] diagSPD = diagSPD_m52_2d(alpha, rho1, rho2, sqrt_LAMBDA);
+
+  return PHI * (diagSPD .* beta);
+}
