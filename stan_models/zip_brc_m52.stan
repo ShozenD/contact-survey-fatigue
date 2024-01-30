@@ -18,8 +18,10 @@ functions
 data
 {
   // ========== Sample size and dimensions ==========
-  int<lower=1> Nobs;  // Number of observations
-  int<lower=1> Npart; // Number of participants
+  int<lower=1> Nobs;     // Number of observations
+  int<lower=1> Nzero;    // Number of zero observations
+  int<lower=1> Nnonzero; // Number of nonzero observations
+  int<lower=1> Npart;    // Number of participants
 
   int<lower=1> A;     // Number of age inputs
   int<lower=1> A2;    // A(A+1)/2
@@ -33,6 +35,8 @@ data
   array[Nobs] int Y;        // Array of contact reports
   matrix[Npart,P] X;        // Participant covariate design matrix
   array[Nobs] int part_idx; // Participant index
+  array[Nzero] int zero_idx; // Index for zero observations
+  array[Nnonzero] int non_zero_idx; // Index for nonzero observations
 
   // ========== Repeat effect terms ==========
   array[Npart] int rep_idx; // Index for the number of repeats
@@ -47,6 +51,7 @@ data
   array[A*A] int sym_from_lowertri_idxset; //
 
   // ========== Offsets ==========
+  vector[A] offN;       // Offset for number of observations for age a
   row_vector[A] offP;   // Offset for population size
   vector[Npart] offS;   // Offset for missing and group contacts
 
@@ -67,6 +72,7 @@ transformed data
   // Precompute log offset terms
   vector[Npart] log_offS = log(offS);
   matrix[A,A] log_offP = rep_matrix(log(offP), A);
+  matrix[A,C] log_offN = rep_matrix(log(offN), C);
 
   // ========== HSGP ==========
   real L1 = C1 * max(Xhsgp[:,1]);
@@ -81,6 +87,7 @@ parameters
 {
   real alpha;     // Baseline parameter
   vector[P] beta; // Participant covariate parameters
+  real tau;
 
   // ========== Repeat effect terms ==========
   vector<lower=0>[J] gamma;
@@ -101,17 +108,19 @@ parameters
 
 transformed parameters {
   vector[Nobs] log_lambda_obs;
+  vector[Nobs] theta;
   matrix[A,A] log_m; // logarithm of the contact intensity
 
   { // Local scope
-    log_m = to_matrix(hsgp_se_2d(z, sigma, lenscale1, lenscale2, sqrt_LAMBDA, PHI)[sym_from_lowertri_idxset], A, A) + log_offP;
-    matrix[A,C] log_m_strata = log(exp(log_m)*age_strata_map);
+    log_m = to_matrix(hsgp_m52_2d(z, sigma, lenscale1, lenscale2, sqrt_LAMBDA, PHI)[sym_from_lowertri_idxset], A, A) + log_offP;
+    matrix[A,C] log_lambda_strata = log(exp(log_m)*age_strata_map) + log_offN;
 
     vector[Npart] log_lambda_part;
     for (i in 1:Npart) { log_lambda_part = alpha + X*beta + zeta + repeat_effect(job_idx[i], rep_idx[i], gamma, kappa, eta) + log_offS; }
     log_lambda_obs = log_lambda_part[part_idx];
 
-    for (i in 1:Nobs) { log_lambda_obs[i] = log_m_strata[age_idxset[i,1]][age_idxset[i,2]] + log_lambda_obs[i]; }
+    for (i in 1:Nobs) { log_lambda_obs[i] = log_lambda_strata[age_idxset[i,1]][age_idxset[i,2]] + log_lambda_obs[i]; }
+    theta = inv_logit(-tau*log_lambda_obs);
   }
 }
 
@@ -138,15 +147,49 @@ model
   target += normal_lpdf(z | 0, 1);
 
   // ========== Likelihood ==========
-  target += poisson_log_lpmf(Y | log_lambda_obs + eps);
+  // Zero case
+  for (i in 1:Nzero) {
+    int idx = zero_idx[i];
+    target += log_mix(theta[idx], 0, poisson_lpmf(Y[idx] | exp(log_lambda_obs[idx])));
+  }
+
+  // Non-zero case
+  target += log1m(theta[non_zero_idx]);
+  target += poisson_log_lpmf(Y[non_zero_idx] | log_lambda_obs[non_zero_idx]);
 }
 
 generated quantities {
   array[Nobs] int yhat;
   vector[Nobs] log_lik;
-  for (i in 1:Nobs) {
-    log_lik[i] = poisson_lpmf(Y[i] | log_lambda_obs[i]);
-    yhat[i] = poisson_rng(log_lambda_obs[i]);
+  // Zero case
+  for (i in 1:Nzero) {
+    int idx = zero_idx[i];
+    log_lik[idx] = log_mix(theta[idx], 0, poisson_lpmf(Y[idx] | exp(log_lambda_obs[idx])));
+
+    // Generate predictions
+    { // Local scope
+      real Z = bernoulli_rng(1 - theta[idx]);
+      if (Z > 0) {
+        yhat[idx] = poisson_rng(exp(log_lambda_obs[idx]));
+      } else {
+        yhat[idx] = 0;
+      }
+    }
+  }
+  // Non-zero case
+  for (i in 1:Nnonzero) {
+    int idx = non_zero_idx[i];
+    log_lik[idx] = log1m(theta[idx]) + poisson_log_lpmf(Y[idx] | log_lambda_obs[idx]);
+
+    // Generate predictions
+    { // Local scope
+      real Z = bernoulli_rng(1 - theta[idx]);
+      if (Z > 0) {
+        yhat[idx] = poisson_rng(exp(log_lambda_obs[idx]));
+      } else {
+        yhat[idx] = 0;
+      }
+    }
   }
 }
 
