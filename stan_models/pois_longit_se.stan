@@ -49,6 +49,7 @@ data {
 
 transformed data {
   array[N_wave] real w_std = to_array_1d((w - mean(w)) / sd(w));
+  
   vector[N_repeat-1] r_std = r / max(r);
 }
 
@@ -93,8 +94,8 @@ model {
   target += inv_gamma_lpdf(gp_time_lenscale | 5, 5);
 
   // Repeat effect
-  target += normal_lpdf(gamma_repeat | 0, 1);
-  target += inv_gamma_lpdf(sigma_repeat | 5, 5);
+  target += inv_gamma_lpdf(gamma_repeat | 1, 1);
+  target += inv_gamma_lpdf(sigma_repeat | 1, 1);
 
   // likelihood
   target += poisson_log_lpmf(y | log_lambda);

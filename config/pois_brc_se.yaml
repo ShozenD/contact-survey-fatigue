@@ -1,0 +1,19 @@
+out_dir: "/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
+
+model:
+  name: "brc_se"
+  M1: 30
+  M2: 30
+  C1: 1.5
+  C2: 1.5
+  hatGamma: 1
+  hatKappa: 1
+  hatEta: 1
+  
+mcmc:
+  seed: 0
+  iter_warmup: 500
+  iter_sampling: 1000
+  chains: 4
+  parallel_chains: 4
+  max_treedepth: 11
