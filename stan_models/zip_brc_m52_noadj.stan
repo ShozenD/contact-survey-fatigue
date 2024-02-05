@@ -29,7 +29,6 @@ data
 
   int<lower=1> P;     // The number of participant covariates
   int<lower=1> J;     // The number of jobs with repeat effects
-  int<lower=1> R;     // The maximum number of repeats
 
   // ========== Data ==========
   array[Nobs] int Y;        // Array of contact reports
@@ -37,13 +36,6 @@ data
   array[Nobs] int part_idx; // Participant index
   array[Nzero] int zero_idx; // Index for zero observations
   array[Nnonzero] int non_zero_idx; // Index for nonzero observations
-
-  // ========== Repeat effect terms ==========
-  array[Npart] int rep_idx; // Index for the number of repeats
-  array[Npart] int job_idx;     // Job dummy variables (for repeat effects)
-  real hatGamma;            // Shape parameter for gamma prior (posterior median of the longitudinal model)
-  real hatKappa;            // Shape parameter for kappa prior (posterior median of the longitudinal model)
-  real hatEta;              // Shape parameter for eta prior   (posterior median of the longitudinal model)
 
   // ========== Age ==========
   array[Nobs,2] int age_idxset; // Matrix to map age effect to observations
@@ -89,15 +81,10 @@ parameters
   vector[P] beta; // Participant covariate parameters
   real tau;
 
-  // ========== Repeat effect terms ==========
-  vector<lower=0>[J] gamma;
-  vector<lower=0>[J] kappa;
-  vector<lower=0>[J] eta;
-
   // ========== Individual Random effects ==========
-  // real zeta_mean_hyper;
-  // real<lower=0> zeta_sd_hyper;
-  // vector[Npart] zeta;
+  real zeta_mean_hyper;
+  real<lower=0> zeta_sd_hyper;
+  vector[Npart] zeta;
 
   // ========== HSGP ==========
   real<lower=0> lenscale1; // GP lengthscale
@@ -115,10 +102,7 @@ transformed parameters {
     log_m = to_matrix(hsgp_m52_2d(z, sigma, lenscale1, lenscale2, sqrt_LAMBDA, PHI)[sym_from_lowertri_idxset], A, A) + log_offP;
     matrix[A,C] log_lambda_strata = log(exp(log_m)*age_strata_map) + log_offN;
 
-    vector[Npart] log_lambda_part;
-    // log_lambda_part = alpha + X*beta + zeta + log_offS;
-    log_lambda_part = alpha + X*beta + log_offS;
-    for (i in 1:Npart) { log_lambda_part[i] = log_lambda_part[i] - repeat_effect(job_idx[i], rep_idx[i], gamma, kappa, eta); }
+    vector[Npart] log_lambda_part = alpha + X*beta + zeta + log_offS;
     log_lambda_obs = log_lambda_part[part_idx];
 
     for (i in 1:Nobs) { log_lambda_obs[i] = log_lambda_strata[age_idxset[i,1]][age_idxset[i,2]] + log_lambda_obs[i]; }
@@ -131,17 +115,11 @@ model
   // ========== Priors ==========
   target += normal_lpdf(alpha | 0, 10);
   target += normal_lpdf(beta | 0, 1);
-  target += normal_lpdf(tau | 0, 5);
-
-  // ========== Repeat effect terms ==========
-  target += gamma_lpdf(gamma | hatGamma, 1);
-  target += gamma_lpdf(kappa | hatKappa, 1);
-  target += gamma_lpdf(eta | hatEta, 1);
 
   // ========== Individual Random effects ==========
-  // target += normal_lpdf(zeta_mean_hyper | 0, 1);
-  // target += normal_lpdf(zeta_sd_hyper | 0, 1);
-  // target += normal_lpdf(zeta | zeta_mean_hyper, zeta_sd_hyper);
+  target += normal_lpdf(zeta_mean_hyper | 0, 1);
+  target += normal_lpdf(zeta_sd_hyper | 0, 1);
+  target += normal_lpdf(zeta | zeta_mean_hyper, zeta_sd_hyper);
 
   // ========== HSGP ==========
   target += gamma_lpdf(lenscale1 | 5, 1);

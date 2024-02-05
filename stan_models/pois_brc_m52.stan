@@ -35,8 +35,6 @@ data
   array[Nobs] int Y;        // Array of contact reports
   matrix[Npart,P] X;        // Participant covariate design matrix
   array[Nobs] int part_idx; // Participant index
-  array[Nzero] int zero_idx; // Index for zero observations
-  array[Nnonzero] int non_zero_idx; // Index for nonzero observations
 
   // ========== Repeat effect terms ==========
   array[Npart] int rep_idx; // Index for the number of repeats
@@ -87,7 +85,6 @@ parameters
 {
   real alpha;     // Baseline parameter
   vector[P] beta; // Participant covariate parameters
-  real tau;
 
   // ========== Repeat effect terms ==========
   vector<lower=0>[J] gamma;
@@ -113,7 +110,7 @@ transformed parameters {
 
   { // Local scope
     log_m = to_matrix(hsgp_m52_2d(z, sigma, lenscale1, lenscale2, sqrt_LAMBDA, PHI)[sym_from_lowertri_idxset], A, A) + log_offP;
-    matrix[A,C] log_lambda_strata = log(exp(log_m)*age_strata_map) + log_offN;
+    matrix[A,C] log_lambda_strata = log(exp(log_m)*age_strata_map);
 
     vector[Npart] log_lambda_part;
     // log_lambda_part = alpha + X*beta + zeta + log_offS;
@@ -122,7 +119,6 @@ transformed parameters {
     log_lambda_obs = log_lambda_part[part_idx];
 
     for (i in 1:Nobs) { log_lambda_obs[i] = log_lambda_strata[age_idxset[i,1]][age_idxset[i,2]] + log_lambda_obs[i]; }
-    theta = inv_logit(-tau*log_lambda_obs);
   }
 }
 
@@ -131,7 +127,6 @@ model
   // ========== Priors ==========
   target += normal_lpdf(alpha | 0, 10);
   target += normal_lpdf(beta | 0, 1);
-  target += normal_lpdf(tau | 0, 5);
 
   // ========== Repeat effect terms ==========
   target += gamma_lpdf(gamma | hatGamma, 1);
@@ -150,49 +145,16 @@ model
   target += normal_lpdf(z | 0, 1);
 
   // ========== Likelihood ==========
-  // Zero case
-  for (i in 1:Nzero) {
-    int idx = zero_idx[i];
-    target += log_mix(theta[idx], 0, poisson_lpmf(Y[idx] | exp(log_lambda_obs[idx])));
-  }
-
-  // Non-zero case
-  target += log1m(theta[non_zero_idx]);
-  target += poisson_log_lpmf(Y[non_zero_idx] | log_lambda_obs[non_zero_idx]);
+  target += poisson_log_lpmf(Y | log_lambda_obs + 1e-4);
 }
 
 generated quantities {
   array[Nobs] int yhat;
   vector[Nobs] log_lik;
-  // Zero case
-  for (i in 1:Nzero) {
-    int idx = zero_idx[i];
-    log_lik[idx] = log_mix(theta[idx], 0, poisson_lpmf(Y[idx] | exp(log_lambda_obs[idx])));
-
-    // Generate predictions
-    { // Local scope
-      real Z = bernoulli_rng(1 - theta[idx]);
-      if (Z > 0) {
-        yhat[idx] = poisson_rng(exp(log_lambda_obs[idx]));
-      } else {
-        yhat[idx] = 0;
-      }
-    }
-  }
   // Non-zero case
-  for (i in 1:Nnonzero) {
-    int idx = non_zero_idx[i];
-    log_lik[idx] = log1m(theta[idx]) + poisson_log_lpmf(Y[idx] | log_lambda_obs[idx]);
-
-    // Generate predictions
-    { // Local scope
-      real Z = bernoulli_rng(1 - theta[idx]);
-      if (Z > 0) {
-        yhat[idx] = poisson_rng(exp(log_lambda_obs[idx]));
-      } else {
-        yhat[idx] = 0;
-      }
-    }
+  for (i in 1:Nobs) {
+    log_lik[i] = poisson_log_lpmf(Y[i] | log_lambda_obs[i] + 1e-4);
+    yhat[i] = poisson_rng(exp(log_lambda_obs[i] + 1e-4));
   }
 }
 
