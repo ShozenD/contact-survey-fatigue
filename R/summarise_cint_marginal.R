@@ -8,7 +8,7 @@
 #' @export
 summarise_cint_marginal <- function(cint_matrix,
                                     probs = c(0.5, 0.025, 0.25, 0.75, 0.975),
-                                    labels = c('M','CL', 'Q25', 'Q50', 'CU')) {
+                                    labels = c('M','CL', 'Q25', 'Q75', 'CU')) {
 
   pattern <- "log_m\\[([0-9]+),([0-9]+)\\]"
   cint_matrix$part_age <- as.numeric(gsub(pattern, "\\1", cint_matrix$variable)) - 1
