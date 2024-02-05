@@ -5,6 +5,7 @@
 #' @param labels A vector of labels for the quantiles
 #'
 #' @return A data.table containing the posterior quantiles of the contact intensity matrix
+#' @import data.table
 #' @export
 summarise_cint_matrix <- function(cint_matrix,
                                   probs = c(0.5, 0.025, 0.25, 0.75, 0.975),

@@ -6,6 +6,7 @@
 #' @param labels A vector of labels for the quantiles
 #'
 #' @return A data.table containing the summary statistics posterior distribution of marginal contact intensity
+#' @import data.table
 #' @export
 summarise_cint_marginal <- function(cint_matrix,
                                     use_quantile = TRUE,
