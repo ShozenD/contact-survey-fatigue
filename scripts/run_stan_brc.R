@@ -20,7 +20,7 @@ stan_data$hatEta <- 1
 
 names(stan_data)
 
-model <- cmdstan_model("stan_models/brc_se.stan", compile = TRUE)
+model <- cmdstan_model("stan_models/zip_brc_m52.stan", compile = TRUE)
 
 fit <- model$sample(stan_data,
                     iter_warmup = 200,
