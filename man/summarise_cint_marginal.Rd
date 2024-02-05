@@ -6,12 +6,15 @@
 \usage{
 summarise_cint_marginal(
   cint_matrix,
+  use_quantile = TRUE,
   probs = c(0.5, 0.025, 0.25, 0.75, 0.975),
-  labels = c("M", "CL", "Q25", "Q50", "CU")
+  labels = c("M", "CL", "Q25", "Q75", "CU")
 )
 }
 \arguments{
 \item{cint_matrix}{A data.table containing the posterior distribution of contact intensity}
+
+\item{use_quantile}{A logical indicating whether to summarise using quantiles}
 
 \item{probs}{A vector of quantiles to summarise}
 
