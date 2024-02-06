@@ -2,7 +2,7 @@
 % Please edit documentation in R/make_convergence_diagnostic_stats.R
 \name{make_convergence_diagnostic_stats}
 \alias{make_convergence_diagnostic_stats}
-\title{Make convergence diagnostic statistics}
+\title{A general function to make convergence diagnostic statistics}
 \usage{
 make_convergence_diagnostic_stats(fit, outdir = NA)
 }
@@ -15,5 +15,5 @@ make_convergence_diagnostic_stats(fit, outdir = NA)
 A summary table of estimates and diagnostics
 }
 \description{
-Make convergence diagnostic statistics
+A general function to make convergence diagnostic statistics
 }
