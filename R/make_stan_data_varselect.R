@@ -1,4 +1,11 @@
-make_stan_data <- function(data, config){
+#' Make stan data for variable selection models
+#'
+#' @param data Preprocessed data
+#' @param config Configuration list
+#'
+#' @return Stan data list
+#' @export
+make_stan_data_varselect <- function(data, config){
   if (stringr::str_detect(config$model$name, "_longit_")) {
     # Data processing for longitudinal models
     stan_data <- make_stan_data.longit(data)
@@ -7,9 +14,6 @@ make_stan_data <- function(data, config){
     # Data processing for cross-sectional models
     if (stringr::str_detect(config$model$name, "^zi")) {
       stan_data <- make_stan_data.zi(data)
-
-    } else if (stringr::str_detect(config$model$name, "^logit")) {
-      stan_data <- make_stan_data.logit(data)
 
     } else if (stringr::str_detect(config$model$name, "[^pois|^rsb]")) {
       stan_data <- make_stan_data.pois(data)
@@ -20,27 +24,6 @@ make_stan_data <- function(data, config){
       stan_data <- add_horseshoe_params(stan_data, config)
     }
   }
-
-  return(stan_data)
-}
-
-make_stan_data.logit <- function(data) {
-  rep_stat <- data$repeat_status
-  y <- as.integer(data$y_grp > 0)
-  y0 <- y[rep_stat == 0]
-  y1 <- y[rep_stat == 1]
-
-  Xs <- make_design_matrices(data, "default")
-
-  stan_data <- list(
-    N0 = nrow(Xs[[1]]),
-    N1 = nrow(Xs[[2]]),
-    P = ncol(Xs[[1]]),
-    X0 = Xs[[1]],
-    X1 = Xs[[2]],
-    y0 = y0,
-    y1 = y1
-  )
 
   return(stan_data)
 }
@@ -100,43 +83,3 @@ make_stan_data.zi <- function(data) {
 
   return(stan_data)
 }
-
-make_stan_data.longit <- function(data) {
-  # Unpack data
-  part_idx <- data$part_idx
-  y <- data$y
-  X <- data$X
-
-  w_idx <- X[, "wave"] - 2 # Since we start from wave 3
-  r_idx <- X[, "rep"] + 1 # Since we start with 0 repeats
-  y_lag <- X[, "y_tot_lag"]
-
-  r <- seq(1, max(r_idx) - 1)
-  w <- seq(1, max(w_idx))
-
-  X_dummies <- X[, -c(1, 2, 3)]
-
-  # Create stan_data
-  stan_data <- list(
-    N = length(y),
-    N_part = max(part_idx),
-    N_wave = max(w_idx),
-    N_repeat = max(r_idx),
-    P = ncol(X_dummies),
-    X = X_dummies,
-    part_idx = part_idx,
-    w_idx = w_idx,
-    r_idx = r_idx,
-    y_lag = y_lag,
-    w = w,
-    r = r,
-    y = y
-  )
-
-  return(stan_data)
-}
-
-
-
-
-

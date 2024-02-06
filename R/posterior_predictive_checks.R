@@ -21,7 +21,8 @@
 #'    it supports zero-inflated models (prefix "zi"), Poisson models (excluding
 #'    those with prefixes "pois" and "rsb"), and has a placeholder for logistic
 #'    regression models (prefix "logit"), which is not yet implemented.
-#'
+#' @importFrom stringr str_detect
+#' @import data.table
 #' @export
 posterior_predictive_checks <- function(fit, stan_data, config, outdir = NA) {
 

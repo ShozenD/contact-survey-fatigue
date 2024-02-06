@@ -1,4 +1,4 @@
-#' Make convergence diagnostic statistics
+#' A general function to make convergence diagnostic statistics
 #'
 #' @param fit A fitted CmdStanModel
 #' @param outdir Directory to save outputs

@@ -1,6 +1,3 @@
-require(dplyr)
-require(fastDummies)
-
 #' Make Design Matrix
 #'
 #' This function creates a design matrix from a given data frame. It processes
@@ -16,8 +13,9 @@ require(fastDummies)
 #' # 'hh_size', and 'job':
 #' design_matrix <- make_design_matrix(df)
 #'
+#' @import dplyr
+#' @import fastDummies
 #' @export
-#'
 make_design_matrices <- function(df, analysis, model_type){
   # Split data into adults and children
   df <- mutate(
