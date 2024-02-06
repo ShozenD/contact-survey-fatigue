@@ -1,6 +1,14 @@
-require(ggplot2)
-require(data.table)
-
+#' Plot the posterior distribution of the repeat effects from the variable selection model
+#'
+#' @param fit A CmdStanR fit object
+#' @param stan_data Stan data used to fit the model
+#' @param config Configuration list
+#' @param outdir Output directory
+#'
+#' @return A ggplot object
+#' @import ggplot2
+#' @importFrom data.table as.data.table
+#' @export
 plot_repeat_effects <- function(fit, stan_data, config, outdir = NA) {
 
   if (stringr::str_detect(config$model$name, "[constrained|balanced]")) {

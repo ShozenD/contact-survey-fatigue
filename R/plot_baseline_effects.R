@@ -1,5 +1,14 @@
-require(ggplot2)
-
+#' Plot baseline effects of the variable selection model
+#'
+#' @param fit CmdStanR fit object
+#' @param stan_data Stan data used to fit the model
+#' @param config Configuration list
+#' @param outdir Output directory
+#'
+#' @return A ggplot object
+#' @import ggplot2
+#' @importFrom data.table as.data.table
+#' @export
 plot_baseline_effects <- function(fit, stan_data, config, outdir = NA) {
   ic_color_palette <- c("#00548F", "#7244E5", "#CC3DC7", "#CC3D5C", "#CC893D", "#A3CC3D", "#3DCC41", "#3DCCAD")
 
