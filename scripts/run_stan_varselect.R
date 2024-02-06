@@ -43,3 +43,5 @@ out_dir <- config$out_dir
 out_dir <- file.path(out_dir, "stan_fits")
 if (!dir.exists(out_dir)) dir.create(out_dir)
 stan_fit$save_object(file.path(out_dir, paste0(config$experiment_name, ".rds")))
+
+cat(" Done!\n")

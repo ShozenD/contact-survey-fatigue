@@ -55,7 +55,7 @@ transformed data {
   array[N] int y = append_array_int4(y00, y10, y01, y11);
 
   // Scale for the global shrinkage parameter
-  real<lower=0> hs_scale_global = p0 * 1.0 /(P - p0) * 1/sqrt(N);
+  real<lower=0> hs_scale_global = p0 * 1.0/(P - p0) * 1.0/sqrt(N);
 }
 
 parameters {
