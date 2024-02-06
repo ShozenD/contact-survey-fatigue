@@ -2,11 +2,9 @@
 library(yaml)
 library(optparse)
 library(readr)
-library(dplyr)
 library(cmdstanr)
-
-# Source functions
-source("R/make_stan_data.R")
+library(devtools)
+load_all()
 
 # ===== Load configurations =====
 # Parse command line arguments
@@ -24,13 +22,13 @@ data <- read_rds("data/silver/covimod-wave-3to12.rds")
 
 # ===== Prepare data =====
 cat(" Preparing Stan data...\n")
-stan_data <- make_stan_data(data, config)
+stan_data <- make_stan_data_longit(data)
 
 # Save stan_data for convienient access from different scripts
 out_dir <- config$out_dir
 out_dir <- file.path(out_dir, "stan_data")
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
-saveRDS(stan_data, file = file.path(out_dir, paste0(config$model$name, ".rds")))
+saveRDS(stan_data, file = file.path(out_dir, paste0(config$experiment_name, ".rds")))
 
 # ===== Compile Stan model =====
 cat(" Compiling Stan model...\n")
@@ -46,11 +44,11 @@ stan_fit <- stan_model$sample(data = stan_data,
                               iter_warmup = config$mcmc$iter_warmup,
                               iter_sampling = config$mcmc$iter_sampling,
                               max_treedepth = config$mcmc$max_treedepth,
-                              refresh = 10)
+                              refresh = 50)
 
 # ===== Save fitted model =====
 cat(" Saving the fitted model...\n")
 # Setup output directory
 out_dir <- file.path(config$out_dir, "stan_fits")
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
-stan_fit$save_object(file.path(out_dir, paste0(config$model$name, ".rds")))
+stan_fit$save_object(file.path(out_dir, paste0(config$experiment_name, ".rds")))
