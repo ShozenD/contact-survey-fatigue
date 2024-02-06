@@ -1,5 +1,13 @@
+#' Clean the labels of the variables
+#'
+#' @param x A character vector of variable names
+#'
+#' @return A list of variables and labels
+#' @importFrom stringr str_detect str_remove
+#' @importFrom dplyr case_when
+#' @export
 clean_labels <- function(x) {
-  variable <- dplyr::case_when(
+  variable <- case_when(
     stringr::str_detect(x, "^edu") ~ "Education",
     stringr::str_detect(x, "^age_strata") ~ "Age group",
     stringr::str_detect(x, "^gender") ~ "Gender",
@@ -13,7 +21,7 @@ clean_labels <- function(x) {
   x <- stringr::str_remove(x, "gender_")
   x <- stringr::str_remove(x, "job_")
 
-  labels <- dplyr::case_when(
+  labels <- case_when(
     x == "Nursery or pre-school_0-5" ~ "Nursery/Pre-shool [0-5]",
     x == "Raised-at-home-toddler_0-5" ~ "Raised-at-home-toddler [0-5]",
     x == "Student/Pupil_0-5" ~ "Student [0-5]",
