@@ -18,7 +18,7 @@ config <- read_yaml(file.path("config", cli_args$config_file))
 
 # ===== Load data =====
 cat(" Loading data...\n")
-data <- read_rds("data/silver/covimod-wave-20.rds")
+data <- read_rds(file.path("data/silver", config$data$fname))
 
 # ===== Prepare stan data =====
 stan_data <- data
@@ -39,7 +39,7 @@ stan_data$hatEta <- config$model$hatEta
 out_dir <- config$out_dir
 out_dir <- file.path(out_dir, "stan_data")
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
-saveRDS(stan_data, file = file.path(out_dir, paste0(config$model$name, ".rds")))
+saveRDS(stan_data, file = file.path(out_dir, paste0(config$experiment_name, ".rds")))
 
 # ===== Compile Stan model =====
 cat(" Compiling Stan model...\n")
@@ -48,17 +48,19 @@ stan_model <- cmdstan_model(file.path("stan_models", paste0(config$model$name, "
 
 # ===== Run MCMC =====
 cat(" Running MCMC...\n")
-stan_fit <- model$sample(stan_data,
-                    iter_warmup = config$mcmc$iter_warmup,
-                    iter_sampling = config$mcmc$iter_sampling,
-                    chains = config$mcmc$chains,
-                    parallel_chains = config$mcmc$parallel_chains,
-                    max_treedepth = config$mcmc$max_treedepth,
-                    refresh = 10)
+stan_fit <- stan_model$sample(stan_data,
+                              iter_warmup = config$mcmc$iter_warmup,
+                              iter_sampling = config$mcmc$iter_sampling,
+                              chains = config$mcmc$chains,
+                              parallel_chains = config$mcmc$parallel_chains,
+                              max_treedepth = config$mcmc$max_treedepth,
+                              refresh = 50)
 
 # ===== Save fitted model =====
 cat(" Saving the fitted model...\n")
 # Setup output directory
 out_dir <- file.path(config$out_dir, "stan_fits")
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
-stan_fit$save_object(file.path(out_dir, paste0(config$model$name, ".rds")))
+stan_fit$save_object(file.path(out_dir, paste0(config$experiment_name, ".rds")))
+
+cat(" Done!\n")
