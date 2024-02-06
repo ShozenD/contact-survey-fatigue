@@ -13,7 +13,7 @@
 #' # 'hh_size', and 'job':
 #' design_matrix <- make_design_matrix(df)
 #'
-#' @import dplyr
+#' @importFrom dplyr case_when mutate select across
 #' @import fastDummies
 #' @export
 make_design_matrices <- function(df, analysis, model_type){
