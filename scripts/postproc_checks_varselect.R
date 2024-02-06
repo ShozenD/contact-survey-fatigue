@@ -5,6 +5,8 @@ library(data.table)
 library(rjson)
 library(reshape2)
 library(cmdstanr)
+library(devtools)
+load_all()
 
 option_list <- list(
   make_option(c("--config"), type = "character", default = NA, help = "configuration file", dest = "config_file")
@@ -24,7 +26,7 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
 fit_summary <- make_convergence_diagnostic_stats(fit, outdir = out_dir)
 
-cat(" Performing posterior predictive checks")
+cat(" Performing posterior predictive checks...\n")
 stan_data <- read_rds(file.path(config$out_dir, "stan_data", paste0(config$experiment_name, ".rds")))
 
 dt_ppc <- posterior_predictive_checks(fit, stan_data, config, out_dir)
