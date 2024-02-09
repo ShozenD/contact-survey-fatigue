@@ -17,6 +17,7 @@ config <- read_yaml(file.path("config", cli_args$config_file))
 
 cat(" Making Stan data...\n")
 stan_data <- make_stan_data_varselect(df, config)
+stan_data$p0 <- cli_args$arr_idx
 
 # Save stan_data for convienient access from different scripts
 out_dir <- config$out_dir
@@ -34,13 +35,14 @@ stan_model <- cmdstan_model(file.path("stan_models", paste0(config$model$name, "
 
 cat(" Running MCMC...\n")
 stan_fit <- stan_model$sample(stan_data,
-                              seed = config$mcmc$seed + cli_args$arr_idx,
+                              seed = config$mcmc$seed,
                               iter_warmup = config$mcmc$iter_warmup,
                               iter_sampling = config$mcmc$iter_sampling,
                               chains = config$mcmc$chains,
                               parallel_chains = config$mcmc$parallel_chains,
                               max_treedepth = config$mcmc$max_treedepth,
-                              refresh = 50)
+                              adapt_delta = config$mcmc$adapt_delta,
+                              refresh = 100)
 
 cat(" Saving the fitted model...\n")
 # Setup output directory
