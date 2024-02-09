@@ -1,8 +1,8 @@
 add_horseshoe_params <- function(stan_data, config) {
   # Default parameters
-  stan_data$hs_df <- 1
-  stan_data$hs_df_global <- 1
-  stan_data$hs_df_slab <- 4
+  stan_data$hs_df <- config$model$hs_df
+  stan_data$hs_df_global <- config$model$hs_df_global
+  stan_data$hs_df_slab <- config$model$hs_df_slab
 
   # The prior guess for the number of non-zero coefficients
   stan_data$p0 <- config$model$p0
