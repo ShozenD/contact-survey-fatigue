@@ -1,7 +1,7 @@
 #!/bin/bash
 REPO_PATH="/rds/general/user/sd121/home/contact-survey-fatigue"
 OUT_PATH="/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
-CONFIG_FILE="zip_horseshoe_constrained.yaml"
+CONFIG_FILE="zip_horseshoe_balanced.yaml"
 
 # Create main script
 cat > "$OUT_PATH/run_stan_varselect.pbs" <<EOF
