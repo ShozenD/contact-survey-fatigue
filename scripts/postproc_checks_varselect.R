@@ -27,6 +27,6 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 fit_summary <- make_convergence_diagnostic_stats(fit, outdir = out_dir)
 
 cat(" Performing posterior predictive checks...\n")
-stan_data <- read_rds(file.path(config$out_dir, "stan_data", paste0(config$experiment_name, ".rds")))
+stan_data <- read_rds(file.path(config$out_dir, "stan_data", paste0(config$model$name, ".rds")))
 
 dt_ppc <- posterior_predictive_checks(fit, stan_data, config, out_dir)

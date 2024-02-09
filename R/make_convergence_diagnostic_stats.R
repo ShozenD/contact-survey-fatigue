@@ -39,6 +39,7 @@ make_convergence_diagnostic_stats <- function(fit, outdir = NA) {
 
   # save
   if(!is.na(outdir)){
+    saveRDS(fit_summary, file = file.path(outdir, "fit_summary.rds"))
     saveRDS(ess_bulk_sum, file = file.path(outdir, "ess_bulk_sum.rds"))
     saveRDS(Rhat_sum, file = file.path(outdir, "Rhat_sum.rds"))
     saveRDS(WAIC, file = file.path(outdir, "WAIC.rds"))

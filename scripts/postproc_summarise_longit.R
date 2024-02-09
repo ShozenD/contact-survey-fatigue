@@ -17,14 +17,14 @@ cli_args <- parse_args(OptionParser(option_list = option_list))
 
 cat(" Loading data and configurations...\n")
 config <- read_yaml(file.path("config", cli_args$config_file))
-stan_data <- read_rds(file.path(config$out_dir, "stan_data", paste0(config$model$name, ".rds")))
+stan_data <- read_rds(file.path(config$out_dir, "stan_data", paste0(config$experiment_name, ".rds")))
 
 cat(" Loading the fitted model...\n")
-fit <- read_rds(file.path(config$out_dir, "stan_fits", paste0(config$model$name, ".rds")))
+fit <- read_rds(file.path(config$out_dir, "stan_fits", paste0(config$experiment_name, ".rds")))
 
 cat(" Summarizing posterior samples...\n")
 out_dir <- config$out_dir
-out_dir <- file.path(out_dir, "results", config$model$name)
+out_dir <- file.path(out_dir, "results", config$experiment_name)
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
 quantile5 <- function(x) quantile(x, probs = c(.025, .25, .5, .75, .975))
@@ -34,6 +34,10 @@ if (!str_detect(config$model$name, "_noadj")) { # If the model adjust for the re
   df_po_rho <- summarise_draws(fit$draws(variables = "rho"), ~quantile5(.x))
   df_po_rho$r <- seq(0, nrow(df_po_rho) - 1)
   saveRDS(df_po_rho, file.path(out_dir, "post_rho.rds"))
+
+  # Extract posterior samples of gamma, kappa, and eta (the repeat effects)
+  df_po_rep_parms <- summarise_draws(fit$draws(variables = c("gamma_repeat", "alpha_repeat", "beta_repeat")), ~quantile5(.x))
+  saveRDS(df_po_rep_parms, file.path(out_dir, "post_rep_parms.rds"))
 }
 
 # Extract posterior samples of tau (time effect)
