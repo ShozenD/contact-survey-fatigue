@@ -1,4 +1,5 @@
 out_dir: "~/Imperial/covimod-fatigue-outputs"
+experiment_name: "zip_horseshoe_strong_shrinkage"
 
 model:
   name: "zip_horseshoe_constrained"
