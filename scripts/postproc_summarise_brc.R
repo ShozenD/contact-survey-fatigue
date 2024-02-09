@@ -7,7 +7,9 @@ library(data.table)
 library(reshape2)
 library(cmdstanr)
 library(posterior)
-library(ggplot2)
+library(devtools)
+
+load_all()
 
 # ===== Load configurations =====
 option_list <- list(
@@ -29,21 +31,16 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
 quantile5 <- function(x) quantile(x, probs = c(.025, .25, .5, .75, .975))
 
-# Extract posterior samples of rho (the repeat effect)
-if (!str_detect(config$model$name, "_noadj")) { # If the model adjust for the repeat effect
-  df_po_rho <- summarise_draws(fit$draws(variables = "rho"), ~quantile5(.x))
-  df_po_rho$r <- seq(0, nrow(df_po_rho) - 1)
-  saveRDS(df_po_rho, file.path(out_dir, "post_rho.rds"))
+# Extract contact intensity
+po <- fit$draws(variables = c("alpha", "log_m"), format = "draws_matrix")
+cint_matrix <- extract_cint_matrix(po)
 
-  # Extract posterior samples of gamma, kappa, and eta (the repeat effects)
-  df_po_rep_parms <- summarise_draws(fit$draws(variables = c("gamma_repeat", "alpha_repeat", "beta_repeat")), ~quantile5(.x))
-  saveRDS(df_po_rep_parms, file.path(out_dir, "post_rep_parms.rds"))
-}
+# Contact intensity matrix
+cint_matrix_sum <- summarise_cint_matrix(cint_matrix)
+saveRDS(cint_matrix_sum, file.path(out_dir, "cint_matrix_sum.rds"))
 
-# Extract posterior samples of tau (time effect)
-po <- fit$draws(variables = c("alpha", "tau"), format = "matrix")
-po <- sweep(po[, -1], 1, po[, 1], "+")
-df_po_tau <- summarise_draws(po, ~quantile5(exp(.x)))
-saveRDS(df_po_tau, file.path(out_dir, "post_tau.rds"))
+# Marginal contact intensity
+cint_margin_sum <- summarise_cint_marginal(cint_matrix)
+saveRDS(cint_margin_sum, file.path(out_dir, "cint_margin_sum.rds"))
 
-cat(" DONE!\n")
+cat(" Done!\n")

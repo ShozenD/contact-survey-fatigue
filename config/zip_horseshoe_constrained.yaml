@@ -1,9 +1,9 @@
-out_dir: "~/Imperial/covimod-fatigue-outputs"
-experiment_name: "zip_horseshoe_strong_shrinkage"
+out_dir: "/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
+experiment_name: "zip_horesehoe_medium_shrinkage"
 
 model:
   name: "zip_horseshoe_constrained"
-  p0: 1
+  p0: 3
   scale_slab: 3
 
 mcmc:
