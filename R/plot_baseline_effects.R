@@ -7,6 +7,7 @@
 #'
 #' @return A ggplot object
 #' @import ggplot2
+#' @importFrom stringr str_detect
 #' @importFrom data.table as.data.table
 #' @export
 plot_baseline_effects <- function(fit, stan_data, config, outdir = NA) {
@@ -24,7 +25,7 @@ plot_baseline_effects <- function(fit, stan_data, config, outdir = NA) {
 
   # Clean labels
   # If the model is poisson or rescaled beta
-  if (stringr::str_detect(config$model$name, "[^pois|^rsb]")) {
+  if (str_detect(config$model$name, "^[pois|rsb]")) {
     cleaned_labels <- clean_labels(colnames(stan_data$X0))
   } else if (stringr::str_detect(config$model$name, "^logit")) {
     cleaned_labels <- clean_labels(colnames(stan_data$X0))
