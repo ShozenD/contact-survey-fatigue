@@ -8,20 +8,24 @@
 #' @return A ggplot object
 #' @import ggplot2
 #' @importFrom stringr str_detect
-#' @importFrom data.table as.data.table
+#' @importFrom posterior summarise_draws
+#' @importFrom dplyr filter
 #' @export
 plot_baseline_effects <- function(fit, stan_data, config, outdir = NA) {
   ic_color_palette <- c("#00548F", "#7244E5", "#CC3DC7", "#CC3D5C", "#CC893D", "#A3CC3D", "#3DCC41", "#3DCCAD")
 
   # Extract posterior draws
-  po_draws <- fit$draws(variables = "beta0", format = "matrix")
+  po_draws <- fit$draws(variables = "beta")
 
   # Convert to percentage change and compute quantile
-  po_summary <- apply(po_draws, 2, function(x) quantile(x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975)))
+  quantile5 <- function(x) quantile(x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
+  po_summary <- summarise_draws(po_draws, ~quantile5(.x))
 
   # Change rownames
-  rownames(po_summary) <- c("CL", "Q25", "M", "Q75", "CU")
-  df_po_summary <- data.table::as.data.table(t(po_summary))
+  colnames(po_summary) <- c("variable", "CL", "Q25", "M", "Q75", "CU")
+  df_po_summary <- po_summary
+  df_po_summary$p <- as.numeric(gsub("beta\\[([0-9]+)\\]", "\\1", df_po_summary$variable))
+  df_po_summary <- filter(df_po_summary, p <= stan_data$P)
 
   # Clean labels
   # If the model is poisson or rescaled beta
