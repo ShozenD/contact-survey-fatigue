@@ -46,54 +46,45 @@ dt[is.na(y_nhh), y_nhh := 0]
 
 # Calculate the total number of contacts
 dt[, y_tot := y_hh + y_nhh + y_grp]
+dt[, y_tot_lag := lag(y_tot, 1, default = 0), by = .(new_id)]
 
 # Truncate household size at 4 (more than 90% of all households)
 dt[, hh_size := ifelse(hh_p_incl_0 > 4, 4, hh_p_incl_0)]
-
-# Will write with tidyverse because from here on because its much more readable
-# Prevent NAs for work status
-dt <- mutate(dt,
-             job = case_when(
-               age_strata == "0-4" & school == "None of the above" ~ "Raised-at-home-toddler",
-               age_strata == "0-4" & job == "None of the above"  ~ "Raised-at-home-toddler",
-               is.na(job) & school == "Nursery or pre-school" ~ school,
-               is.na(job) & school == "School" ~ "Student/Pupil",
-               TRUE ~ job))
-
-# Split data into adults and children (to prevent multicolinearity)
-dt <- mutate(dt,
-             edu = case_when(job == "Student/Pupil" & age_strata == "5-9" ~ "Student/Pupil_6-9",
-                             job == "Nursery or pre-school" ~ "Nursery or pre-school_0-5",
-                             job == "Raised-at-home-toddler" ~ "Raised-at-home-toddler_0-5",
-                             age_strata %in% c("0-4", "5-9", "10-14") ~ paste(job, age_strata, sep = "_"),
-                             TRUE ~ "Adult"))
 
 dt <- dt %>%
   filter(!is.na(job), !is.na(gender)) %>% # Remove gender and job NAs
   filter(age_strata != "85+") # Remove people over 85 (small sample size)
 
 # ===== Create design matrix =====
-# Make design matrix for the dummy variables
-var_names <- c("edu", "age_strata", "gender", "hh_size", "job")
-dt_dummies <- fastDummies::dummy_cols(select(dt, all_of(var_names)),
-                                      select_columns = var_names,
-                                      remove_selected_columns = TRUE)
-dt_dummies$u15 <- dt$age_strata %in% c("0-4", "5-9", "10-14")
+## Prepare participant characteristics X
+### Occupations
+jobs_of_interest <- c("Full-time parent, homemaker",
+                      "Long-term sick or disabled",
+                      "Unemployed and not looking for a job",
+                      "Unemployed but looking for a job")
+dt[, job_2 := ifelse(job %in% jobs_of_interest, as.character(job), "Other")]
+dt_dummy_job <- fastDummies::dummy_cols(dt[, .(new_id, job_2)],
+                                        select_columns = "job_2",
+                                        remove_selected_columns = TRUE,
+                                        omit_colname_prefix = TRUE)
+dt_dummy_job[, Other := NULL]  # Remove the Other column
+dt_dummy_job[, new_id := NULL] # Remove ID column
 
-dt_dummies <- dt_dummies %>%
-  select(!c(edu_Adult, `age_strata_0-4`, `age_strata_5-9`, `age_strata_10-14`,
-            `job_Raised-at-home-toddler`, `job_Nursery or pre-school`)) %>%
-  mutate(across(matches("job"), function(x) ifelse(u15, 0, x))) %>%
-  select(!u15)
+## Prepare age related dummies
+age_strata_of_interest <- c("0-4", "5-9", "10-14", "15-19", "20-24", "45-54", "75-79")
+dt[, age_strata_2 := ifelse(age_strata %in% age_strata_of_interest, as.character(age_strata), "Other")]
+dt_dummy_age <- fastDummies::dummy_cols(dt[, .(new_id, age_strata_2)],
+                                        select_columns = "age_strata_2",
+                                        remove_selected_columns = TRUE,
+                                        omit_colname_prefix = TRUE)
+dt_dummy_age[, Other := NULL]  # Remove the Other column
+dt_dummy_age[, new_id := NULL] # Remove ID column
 
-dt <- dt %>%
-  arrange(new_id, wave) %>%
-  group_by(new_id) %>%
-  mutate(y_tot_lag = lag(y_tot, default = 0)) # First-order AR term
+# Combine the dummies
+dt_dummy <- cbind(dt_dummy_age, dt_dummy_job)
 
 # Make design matrix for non-dummies
 dt_non_dummies <- select(dt, new_id, wave, rep, y_tot_lag)
-
 new_id_unique <- unique(dt_non_dummies$new_id)
 part_idx <- seq(1, length(new_id_unique))
 map_id_to_idx <- as.list(part_idx)
@@ -105,11 +96,11 @@ dt_non_dummies <- ungroup(dt_non_dummies)
 part_idx <- dt_non_dummies$part_idx
 
 # Combine the non dummies and dummy variables into one matrix
-X <- cbind(select(dt_non_dummies, wave, rep, y_tot_lag), dt_dummies)
+X <- cbind(select(dt_non_dummies, wave, rep, y_tot_lag), dt_dummy)
 X <- as.matrix(X)
 
 # Outcome variable
 y <- dt$y_tot
 
 data <- list(part_idx = part_idx, y = y, X = X)
-saveRDS(data, file = "data/silver/covimod-wave-3to12.rds")
+saveRDS(data, file = "data/silver/covimod-wave-3-12.rds")
