@@ -88,13 +88,13 @@ transformed parameters {
 
   // Linear predictor
   vector[N] log_lambda; // log rate
-  log_lambda = alpha + X*beta + tau[w_idx] + phi*log_y_lag + rho[r_idx];
+  log_lambda = alpha + tau[w_idx] + phi*log_y_lag + rho[r_idx];
 }
 
 model {
   /* ===== Model Priors ===== */
   target += normal_lpdf(alpha | 0, 10);
-  target += normal_lpdf(beta | 0, 1);
+  // target += normal_lpdf(beta | 0, 1);
   target += cauchy_lpdf(reciprocal_phi | 0., 1);
 
   // Auto-regressive parameter for each participant
