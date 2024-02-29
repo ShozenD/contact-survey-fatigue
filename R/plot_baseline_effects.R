@@ -19,7 +19,7 @@ plot_baseline_effects <- function(fit, stan_data, config, outdir = NA) {
 
   # Convert to percentage change and compute quantile
   quantile5 <- function(x) quantile(x, probs = c(0.025, 0.25, 0.5, 0.75, 0.975))
-  po_summary <- summarise_draws(po_draws, ~quantile5(.x))
+  po_summary <- posterior::summarise_draws(po_draws, ~quantile5(.x))
 
   # Change rownames
   colnames(po_summary) <- c("variable", "CL", "Q25", "M", "Q75", "CU")

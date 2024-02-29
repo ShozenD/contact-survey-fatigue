@@ -46,4 +46,9 @@ po <- sweep(po[, -1], 1, po[, 1], "+")
 df_po_tau <- summarise_draws(po, ~quantile5(exp(.x)))
 saveRDS(df_po_tau, file.path(out_dir, "post_tau.rds"))
 
+# Extract fixed effects
+po_beta <- fit$draws(variables = c("beta"), format = "draws_matrix")
+po_beta_sum <- summarise_draws(po_beta, ~quantile5(.x))
+saveRDS(po_beta_sum, file.path(out_dir, "po_beta_sum.rds"))
+
 cat(" DONE!\n")
