@@ -53,10 +53,7 @@ transformed data{
   array[N_wave] real w_std = to_array_1d((w - mean(w)) / sd(w));
 
   // Standardize repeat variable
-  vector[N_repeat-1] r_norm = r / max(r);
-
-  // Adhoc fix to prevent overflow (not very elegant...)
-  // vector[N] log_y_lag = log(y_lag + 1);
+  array[N_repeat-1] real r_std = to_array_1d((r - mean(r)) / sd(r));
 }
 
 parameters {
@@ -69,12 +66,9 @@ parameters {
   real<lower=0> gp_time_scale;
   real<lower=0> gp_time_lenscale;
 
-  real<lower=0> alpha_repeat;    // Logistic function: intercept
-  real<lower=0> beta_repeat;     // Logistic function: coefficient for the log term
-  real<lower=0> gamma_repeat;    // Logistic function: scale parameter
-
-  // Auto-regressive parameter
-  // real phi;
+  vector[N_repeat-1] gp_repeat_mu;    // Gaussian process: auxiliary random variable
+  real<lower=0> gp_repeat_scale;    // Gaussian process: scale parameter
+  real<lower=0> gp_repeat_lenscale; // Gaussian process: lengthscale parameter
 }
 
 transformed parameters {
@@ -83,7 +77,7 @@ transformed parameters {
 
   vector[N_repeat] rho;
   rho[1] = 0;
-  rho[2:N_repeat] = - gamma_repeat * logistic(r_norm, alpha_repeat, beta_repeat);
+  rho[2:N_repeat] = gp_se(r_std, gp_repeat_mu, gp_repeat_scale, gp_repeat_lenscale, 1e-3); // Gaussian process
 
   // Linear predictor
   vector[N] log_lambda; // log rate
@@ -96,17 +90,14 @@ model {
   target += normal_lpdf(beta | 0, 1);
   target += exponential_lpdf(reciprocal_phi | 1);
 
-  // Auto-regressive parameter for each participant
-  // target += normal_lpdf(phi | 0, 1);
-
   // Gaussian process priors
   target += normal_lpdf(gp_time_mu | 0, 1);
   target += gamma_lpdf(gp_time_scale | 5, 5);
   target += gamma_lpdf(gp_time_lenscale | 5, 5);
 
-  target += gamma_lpdf(alpha_repeat | 1, 1);
-  target += gamma_lpdf(beta_repeat | 1, 1);
-  target += gamma_lpdf(gamma_repeat | 1, 1);
+  target += normal_lpdf(gp_repeat_mu | 0, 1);
+  target += gamma_lpdf(gp_repeat_scale | 5, 5);
+  target += gamma_lpdf(gp_repeat_lenscale | 5, 5);
 
   // likelihood
   target += neg_binomial_2_lpmf(y | exp(log_lambda), 1.0/reciprocal_phi);

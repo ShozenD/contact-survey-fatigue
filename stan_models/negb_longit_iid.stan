@@ -69,12 +69,7 @@ parameters {
   real<lower=0> gp_time_scale;
   real<lower=0> gp_time_lenscale;
 
-  real<lower=0> alpha_repeat;    // Logistic function: intercept
-  real<lower=0> beta_repeat;     // Logistic function: coefficient for the log term
-  real<lower=0> gamma_repeat;    // Logistic function: scale parameter
-
-  // Auto-regressive parameter
-  // real phi;
+  vector[N_repeat-1] rho0;   // Repeat effect
 }
 
 transformed parameters {
@@ -83,7 +78,7 @@ transformed parameters {
 
   vector[N_repeat] rho;
   rho[1] = 0;
-  rho[2:N_repeat] = - gamma_repeat * logistic(r_norm, alpha_repeat, beta_repeat);
+  rho[2:N_repeat] = rho0;
 
   // Linear predictor
   vector[N] log_lambda; // log rate
@@ -96,17 +91,12 @@ model {
   target += normal_lpdf(beta | 0, 1);
   target += exponential_lpdf(reciprocal_phi | 1);
 
-  // Auto-regressive parameter for each participant
-  // target += normal_lpdf(phi | 0, 1);
-
   // Gaussian process priors
   target += normal_lpdf(gp_time_mu | 0, 1);
   target += gamma_lpdf(gp_time_scale | 5, 5);
   target += gamma_lpdf(gp_time_lenscale | 5, 5);
 
-  target += gamma_lpdf(alpha_repeat | 1, 1);
-  target += gamma_lpdf(beta_repeat | 1, 1);
-  target += gamma_lpdf(gamma_repeat | 1, 1);
+  target += normal_lpdf(rho0 | 0, 1);
 
   // likelihood
   target += neg_binomial_2_lpmf(y | exp(log_lambda), 1.0/reciprocal_phi);
