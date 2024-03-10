@@ -87,7 +87,7 @@ model {
 
   /* ===== Horseshoe priors ===== */
   target += std_normal_lpdf(zb);    // Fixed effects
-  target += normal_lpdf(zb_rp | 0, 1.0/(1.0 - 2/pi)); // Repeat effects
+  target += normal_lpdf(zb_rp | 0, 1.0/(1.0 - 2.0/pi)); // Repeat effects
   target += student_t_lpdf(hs_local | hs_df, 0, 1) - rows(hs_local) * log(0.5);
   target += student_t_lpdf(hs_global | hs_df_global, 0, hs_scale_global) - 1 * log(0.5);
   target += inv_gamma_lpdf(hs_slab | 0.5 * hs_df_slab, 0.5 * hs_df_slab);
