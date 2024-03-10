@@ -9,10 +9,11 @@ option_list <- list(
   make_option(c("--config"), type = "character", default = NA, help = "configuration file", dest = "config_file")
 )
 cli_args <- parse_args(OptionParser(option_list = option_list))
-
-cat(" Loading data and configurations...\n")
-df <- read_rds("data/silver/covimod-wave-4.rds")
+cat(" Loading configurations...\n")
 config <- read_yaml(file.path("config", cli_args$config_file))
+
+cat(" Loading data...\n")
+df <- read_rds(file.path("data", "silver", config$data$fname))
 
 cat(" Making Stan data...\n")
 stan_data <- make_stan_data_varselect(df, config)

@@ -12,7 +12,7 @@ cli_args <- parse_args(OptionParser(option_list = option_list))
 
 cat(" Loading data and configurations...\n")
 config <- read_yaml(file.path("config", cli_args$config_file))
-stan_data <- read_rds(file.path(config$out_dir, "stan_data", paste0(config$model$name, ".rds")))
+stan_data <- read_rds(file.path(config$out_dir, "stan_data", paste0(config$experiment_name, ".rds")))
 
 cat(" Loading the fitted model...\n")
 fit <- read_rds(file.path(config$out_dir, "stan_fits", paste0(config$experiment_name, ".rds")))
