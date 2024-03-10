@@ -94,7 +94,7 @@ model {
   // Gaussian process priors
   target += normal_lpdf(gp_time_mu | 0, 1);
   target += gamma_lpdf(gp_time_scale | 5, 5);
-  target += gamma_lpdf(gp_time_lenscale | 5, 5);
+  target += gamma_lpdf(gp_time_lenscale | 5, 1);
 
   target += normal_lpdf(rho0 | 0, 1);
 
