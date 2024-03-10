@@ -1,0 +1,14 @@
+out_dir: "/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
+experiment_name: "negb_longit_logistic"
+
+model:
+  name: "negb_longit_logistic"
+  
+mcmc:
+  seed: 0
+  iter_warmup: 500
+  iter_sampling: 2000
+  chains: 4
+  parallel_chains: 4
+  max_treedepth: 12
+  adapt_delta: 0.99
