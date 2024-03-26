@@ -1,0 +1,22 @@
+out_dir: "/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
+experiment_name: "negb_gam_wave_21"
+
+data:
+  wave: 21
+
+model:
+  name: "negb_brc_m52"
+  M: 30
+  C: 1.5
+  hatGamma: 2.32
+  hatKappa: 0.635
+  hatEta: 1.11
+
+mcmc:
+  seed: 0
+  iter_warmup: 500
+  iter_sampling: 2000
+  chains: 4
+  parallel_chains: 4
+  max_treedepth: 13
+  adapt_delta: 0.99
