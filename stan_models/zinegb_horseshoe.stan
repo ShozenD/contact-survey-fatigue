@@ -24,26 +24,27 @@ functions {
 
 data {
   /* ===== Sample size ===== */
-  int<lower=1> N00;   // No. of first-time participants with zero contacts
-  int<lower=1> N10;   // No. of repeating participants with zero contacts
-  int<lower=1> N01;   // No. of first-time participants with 1 or more contacts
-  int<lower=1> N11;   // No. of repeating participants with 1 or more contacts
+  int<lower=1> N;
+  int<lower=1> Nrep;
+  int<lower=1> Nzero;
 
   /* ===== Design matrices ===== */
   int<lower=1> P;     // Number of parameters
-  matrix[N00,P] X00;  // Design matrix
-  matrix[N10,P] X10;  // Design matrix
-  matrix[N01,P] X01;  // Design matrix
-  matrix[N11,P] X11;  // Design matrix
+  int<lower=1> Prep;
+  matrix[N,P] X;
+  matrix[Nrep,Prep] Xrep;
 
   /* ===== Outcomes ===== */
-  array[N00] int y00; // Array of outcomes (first-time 0 contacts)
-  array[N10] int y10; // Array of outcomes (repeating 0 contacts)
-  array[N01] int y01; // Array of outcomes (first-time 1 or more contacts)
-  array[N11] int y11; // Array of outcomes (repeating 1 or more contacts)
+  array[N] int y;     // Array of observed counts
+
+  /* ===== Indices ===== */
+  array[Nrep] int<lower=1> ridx;     // Index of the repeating participants
+  array[Nzero] int<lower=1> zidx;    // Index of zero counts
+  array[N-Nzero] int<lower=1> nzidx; // Index of non-zero counts
 
   /* ===== Horseshoe prior ===== */
-  int<lower=0> p0; // No. of non-zero coefficients
+  int<lower=0> p0;    // No. of non-zero coefficients
+  int<lower=0> p0rep; // No. of non-zero coefficients for repeat effects
   real<lower=0> hs_df;  // local degrees of freedom
   real<lower=0> hs_df_global;  // global degrees of freedom
   real<lower=0> hs_df_slab;  // slab degrees of freedom
@@ -51,11 +52,9 @@ data {
 }
 
 transformed data {
-  int N = N00 + N10 + N01 + N11;
-  array[N] int y = append_array_int4(y00, y10, y01, y11);
-
   // Scale for the global shrinkage parameter
   real<lower=0> hs_scale_global = p0 * 1.0/(2*P - p0) * 1.0/sqrt(N);
+  real<lower=0> hs_scale_global_rep = p0rep * 1.0/(2*Prep - p0rep) * 1.0/sqrt(Nrep);
 }
 
 parameters {
@@ -66,19 +65,22 @@ parameters {
   /* ===== Fixed effects ===== */
   // Horseshoe prior
   vector[P] zb;                 // Horseshoe auxiliary random variables
-  vector<lower=0>[P] zb_rp;     // Horseshoe auxiliary random variables (repeat effects)
-  vector<lower=0>[2*P] hs_local;  // Horseshoe local parameters
+  vector<lower=0>[P] hs_local;  // Horseshoe local parameters
   real<lower=0> hs_global;      // Global shrinkage parameters
   real<lower=0> hs_slab;        // Slab regularization parameter
+
+  vector<lower=0>[Prep] rzb;           // Horseshoe auxiliary random variables (repeat effects)
+  vector<lower=0>[Prep] hs_local_rep;  // Horseshoe local parameters
+  real<lower=0> hs_global_rep;         // Global shrinkage parameters
+  real<lower=0> hs_slab_rep;           // Slab regularization parameter
 }
 
 transformed parameters {
   /* ===== Fixed effects ===== */
-  vector[2*P] beta;
-  beta = horseshoe(append_row(zb, zb_rp),
-                   hs_local,
-                   hs_global,
-                   hs_scale_slab^2 * hs_slab);
+  vector[P] beta;
+  vector[Prep] gamma;
+  beta = horseshoe(zb, hs_local, hs_global, hs_scale_slab^2 * hs_slab);
+  gamma = horseshoe(rzb, hs_local_rep, hs_global_rep, hs_scale_slab^2 * hs_slab_rep);
 }
 
 model {
@@ -89,35 +91,28 @@ model {
 
   /* ===== Horseshoe priors ===== */
   target += std_normal_lpdf(zb);    // Fixed effects
-  target += normal_lpdf(zb_rp | 0, 1.0/(1.0 - 2.0/pi())); // Repeat effects
   target += student_t_lpdf(hs_local | hs_df, 0, 1) - rows(hs_local) * log(0.5);
   target += student_t_lpdf(hs_global | hs_df_global, 0, hs_scale_global) - 1 * log(0.5);
   target += inv_gamma_lpdf(hs_slab | 0.5 * hs_df_slab, 0.5 * hs_df_slab);
 
+  target += normal_lpdf(rzb | 0, 1.0/(1.0 - 2.0/pi())); // Repeat effects
+  target += student_t_lpdf(hs_local_rep | hs_df, 0, 1) - rows(hs_local_rep) * log(0.5);
+  target += student_t_lpdf(hs_global_rep | hs_df_global, 0, hs_scale_global) - 1 * log(0.5);
+  target += inv_gamma_lpdf(hs_slab_rep | 0.5 * hs_df_slab, 0.5 * hs_df_slab);
+
   // ===== Likelihood =====
   {
-    vector[N00] log_lambda00 = alpha + X00*beta[1:P];
-    vector[N10] log_lambda10 = alpha + X10*beta[1:P] - X10*beta[(P+1):(2*P)];
-    vector[N01] log_lambda01 = alpha + X01*beta[1:P];
-    vector[N11] log_lambda11 = alpha + X11*beta[1:P] - X11*beta[(P+1):(2*P)];
-
-    vector[N00] theta00 = inv_logit(-tau*log_lambda00);
-    vector[N10] theta10 = inv_logit(-tau*log_lambda10);
-    vector[N01] theta01 = inv_logit(-tau*log_lambda01);
-    vector[N11] theta11 = inv_logit(-tau*log_lambda11);
+    vector[N] log_lambda = alpha + X*beta;
+    log_lambda[ridx] = log_lambda[ridx] - Xrep*gamma;
+    vector[N] theta = inv_logit(-tau*log_lambda);
 
     // Update log-likelihood
-    // Zero case
-    for (i in 1:N00) {
-      target += log_mix(theta00[i], 0, neg_binomial_2_log_lpmf(y00[i] | log_lambda00[i], 1/inverse_phi));
+    for (i in 1:Nzero) {
+      target += log_mix(theta[zidx[i]], 0, neg_binomial_2_log_lpmf(y[zidx[i]] | log_lambda[zidx[i]], 1/inverse_phi)); // zero case
     }
-    for (i in 1:N10) {
-      target += log_mix(theta10[i], 0, neg_binomial_2_log_lpmf(y10[i] | log_lambda10[i], 1/inverse_phi));
+    for (i in 1:(N-Nzero)) {
+      target += log1m(theta[nzidx[i]]) + neg_binomial_2_log_lpmf(y[nzidx[i]] | log_lambda[nzidx[i]], 1/inverse_phi);  // non-zero case
     }
-
-    // Non-zero case
-    target += log1m(theta01) + neg_binomial_2_log_lpmf(y01 | log_lambda01, 1/inverse_phi);
-    target += log1m(theta11) + neg_binomial_2_log_lpmf(y11 | log_lambda11, 1/inverse_phi);
   }
 }
 
@@ -125,31 +120,20 @@ generated quantities {
   array[N] int yhat;
   vector[N] log_lik;
 
-  {
-    vector[N00] log_lambda00 = alpha + X00*beta[1:P];
-    vector[N10] log_lambda10 = alpha + X10*beta[1:P] - X10*beta[(P+1):(2*P)];
-    vector[N01] log_lambda01 = alpha + X01*beta[1:P];
-    vector[N11] log_lambda11 = alpha + X11*beta[1:P] - X11*beta[(P+1):(2*P)];
-    vector[N] log_lambda = append_row(log_lambda00, append_row(log_lambda10, append_row(log_lambda01, log_lambda11)));
+  { // local scope
+    vector[N] log_lambda = alpha + X*beta;
+    log_lambda[ridx] = log_lambda[ridx] - Xrep*gamma;
+    vector[N] theta = inv_logit(-tau*log_lambda);
 
-    vector[N00] theta00 = inv_logit(-tau*log_lambda00);
-    vector[N10] theta10 = inv_logit(-tau*log_lambda10);
-    vector[N01] theta01 = inv_logit(-tau*log_lambda01);
-    vector[N11] theta11 = inv_logit(-tau*log_lambda11);
-    vector[N] theta = append_row(theta00, append_row(theta10, append_row(theta01, theta11)));
+    for (i in 1:Nzero) {
+      log_lik[zidx[i]] += log_mix(theta[zidx[i]], 0, neg_binomial_2_log_lpmf(y[zidx[i]] | log_lambda[zidx[i]], 1/inverse_phi)); // zero case
+    }
+    for (i in 1:(N-Nzero)) {
+      log_lik[nzidx[i]] += log1m(theta[nzidx[i]]) + neg_binomial_2_log_lpmf(y[nzidx[i]] | log_lambda[nzidx[i]], 1/inverse_phi);  // non-zero case
+    }
 
     for (i in 1:N) {
-      if (i <= N00) {
-        log_lik[i] = log_mix(theta[i], 0, neg_binomial_2_log_lpmf(y[i] | log_lambda[i], 1/inverse_phi));
-      } else if (i <= N00 + N10) {
-        log_lik[i] = log_mix(theta[i], 0, neg_binomial_2_log_lpmf(y[i] | log_lambda[i], 1/inverse_phi));
-      } else if (i <= N00 + N10 + N01) {
-        log_lik[i] = log1m(theta[i]) + neg_binomial_2_log_lpmf(y[i] | log_lambda[i], 1/inverse_phi);
-      } else {
-        log_lik[i] = log1m(theta[i]) + neg_binomial_2_log_lpmf(y[i] | log_lambda[i], 1/inverse_phi);
-      }
-
-      real z = bernoulli_rng(1-theta[i]);
+      real z = bernoulli_rng(1 - theta[i]);
       if (z > 0) {
         yhat[i] = neg_binomial_2_log_rng(log_lambda[i], 1/inverse_phi);
       } else {
