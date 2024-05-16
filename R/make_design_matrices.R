@@ -16,8 +16,7 @@
 #' @importFrom dplyr case_when mutate select across
 #' @import fastDummies
 #' @export
-make_design_matrices <- function(df, analysis, model_type){
-  # Split data into adults and children
+make_design_matrices <- function(df, model_type){
   df <- mutate(
     df,
     edu = case_when(job == "Student/Pupil" & age_strata == "5-9" ~ "Student/Pupil_6-9",
