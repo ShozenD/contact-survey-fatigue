@@ -16,7 +16,7 @@
 #' @importFrom dplyr case_when mutate select across
 #' @import fastDummies
 #' @export
-make_design_matrices <- function(df, analysis, model_type){
+make_design_matrices <- function(df, analysis, model_type = NA){
   # Split data into adults and children
   df <- mutate(
     df,
@@ -43,12 +43,12 @@ make_design_matrices <- function(df, analysis, model_type){
   repeat_status <- df$repeat_status
   y <- df$y
 
-  if (model_type == "zi") {
+  if (!is.na(model_type) && model_type == "zi") {
     make_design_matrices.zi(X, y, repeat_status)
   } else {
-    X0 <- X[repeat_status == 0,]
-    X1 <- X[repeat_status == 1,]
-    return(list(X0 = X0, X1 = X1))
+    X1 <- X[repeat_status == 0,]
+    X2 <- X[repeat_status == 1,]
+    return(list(X1 = X1, X2 = X2))
   }
 }
 
