@@ -6,10 +6,10 @@
 #' @return Stan data list
 #' @export
 make_stan_data_varselect <- function(data, config){
-  if (stringr::str_detect(config$model$name, "^zi")) {
+  if (stringr::str_detect(config$model$name, "^zi")) { # zero-inflated models
     stan_data <- make_stan_data.zi(data)
 
-  } else if (stringr::str_detect(config$model$name, "[^pois|^rsb]")) {
+  } else if (stringr::str_detect(config$model$name, "[^pois|^negb]")) { # standard count models
     stan_data <- make_stan_data.pois(data)
   }
 
@@ -22,21 +22,29 @@ make_stan_data_varselect <- function(data, config){
 }
 
 make_stan_data.pois <- function(data) {
-  rep_stat <- data$repeat_status
   y <- data$y
-  y0 <- y[rep_stat == 0]
-  y1 <- y[rep_stat == 1]
 
-  Xs <- make_design_matrices(data, "default")
+  # Remove outliers
+  idx_in <- which(y > quantile(y, 0.95))
+  y <- y[idx_in]
+
+  y1 <- y[data$repeat_status == 0]
+  y2 <- y[data$repeat_status == 1]
+
+  X <- make_design_matrices(data, "default")
+  X1 <- X$X1; X2 <- X$X2;
+
+  X1 <- X1[idx_in,]
+  X2 <- X2[idx_in,]
 
   stan_data <- list(
-    N0 = nrow(Xs[[1]]),
-    N1 = nrow(Xs[[2]]),
-    P = ncol(Xs[[1]]),
-    X0 = Xs[[1]],
-    X1 = Xs[[2]],
-    y0 = y0,
-    y1 = y1
+    N1 = nrow(X1),
+    N2 = nrow(X2),
+    P = ncol(X1),
+    X1 = X1,
+    X2 = X2,
+    y1 = y1,
+    y2 = y2
   )
 
   return(stan_data)
