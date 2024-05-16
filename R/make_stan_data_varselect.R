@@ -6,81 +6,29 @@
 #' @return Stan data list
 #' @export
 make_stan_data_varselect <- function(data, config){
-  if (stringr::str_detect(config$model$name, "^zi")) { # zero-inflated models
-    stan_data <- make_stan_data.zi(data)
 
-  } else if (stringr::str_detect(config$model$name, "[^pois|^negb]")) { # standard count models
-    stan_data <- make_stan_data.pois(data)
-  }
+  y <- data$y                             # Outcome vector
+  D <- make_design_matrices(data)         # Design matrices
+  ridx <- which(data$repeat_status == 1)  # Repeat status
+  zidx <- which(data$y == 0)              # Zero outcomes
+  nzidx <- which(data$y > 0)              # Non-zero outcomes
 
-  # Add horseshoe parameters
-  if (stringr::str_detect(config$model$name, "horseshoe")) {
-    stan_data <- add_horseshoe_params(stan_data, config)
-  }
-
-  return(stan_data)
-}
-
-make_stan_data.pois <- function(data) {
-  y <- data$y
-
-  # Remove outliers
-  idx_in <- which(y > quantile(y, 0.95))
-  y <- y[idx_in]
-
-  y1 <- y[data$repeat_status == 0]
-  y2 <- y[data$repeat_status == 1]
-
-  X <- make_design_matrices(data, "default")
-  X1 <- X$X1; X2 <- X$X2;
-
-  X1 <- X1[idx_in,]
-  X2 <- X2[idx_in,]
-
+  # Initialize stan_data
   stan_data <- list(
-    N1 = nrow(X1),
-    N2 = nrow(X2),
-    P = ncol(X1),
-    X1 = X1,
-    X2 = X2,
-    y1 = y1,
-    y2 = y2
+    N = length(y),
+    Nrep = length(ridx),
+    Nzero = length(zidx),
+    P = ncol(D$X),
+    Prep = ncol(D$Xrep),
+    X = D$X,
+    Xrep = D$Xrep,
+    ridx = ridx,
+    zidx = zidx,
+    nzidx = nzidx,
+    y = y
   )
 
-  return(stan_data)
-}
-
-make_stan_data.zi <- function(data) {
-  # Repeat status of the participant
-  rep_stat <- data$repeat_status
-
-  # Outcome vectors
-  y <- data$y
-  y00 <- y[rep_stat == 0 & y == 0]
-  y10 <- y[rep_stat == 1 & y == 0]
-  y01 <- y[rep_stat == 0 & y > 0]
-  y11 <- y[rep_stat == 1 & y > 0]
-
-  Xs <- make_design_matrices(data, model_type = "zi")
-
-  stan_data <- list(
-    N00 = length(y00),
-    N10 = length(y10),
-    N01 = length(y01),
-    N11 = length(y11),
-
-    y00 = y00,
-    y10 = y10,
-    y01 = y01,
-    y11 = y11,
-
-    X00 = Xs$X00,
-    X10 = Xs$X10,
-    X01 = Xs$X01,
-    X11 = Xs$X11,
-
-    P = ncol(Xs$X00)
-  )
+  stan_data <- add_horseshoe_params(stan_data, config)
 
   return(stan_data)
 }
