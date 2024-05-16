@@ -6,23 +6,16 @@
 #' @return Stan data list
 #' @export
 make_stan_data_varselect <- function(data, config){
-  if (stringr::str_detect(config$model$name, "_longit_")) {
-    # Data processing for longitudinal models
-    stan_data <- make_stan_data.longit(data)
+  if (stringr::str_detect(config$model$name, "^zi")) {
+    stan_data <- make_stan_data.zi(data)
 
-  } else {
-    # Data processing for cross-sectional models
-    if (stringr::str_detect(config$model$name, "^zi")) {
-      stan_data <- make_stan_data.zi(data)
+  } else if (stringr::str_detect(config$model$name, "[^pois|^rsb]")) {
+    stan_data <- make_stan_data.pois(data)
+  }
 
-    } else if (stringr::str_detect(config$model$name, "[^pois|^rsb]")) {
-      stan_data <- make_stan_data.pois(data)
-    }
-
-    # Add horseshoe parameters
-    if (stringr::str_detect(config$model$name, "horseshoe")) {
-      stan_data <- add_horseshoe_params(stan_data, config)
-    }
+  # Add horseshoe parameters
+  if (stringr::str_detect(config$model$name, "horseshoe")) {
+    stan_data <- add_horseshoe_params(stan_data, config)
   }
 
   return(stan_data)
