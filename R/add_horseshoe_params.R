@@ -6,6 +6,7 @@ add_horseshoe_params <- function(stan_data, config) {
 
   # The prior guess for the number of non-zero coefficients
   stan_data$p0 <- config$model$p0
+  stan_data$p0rep <- config$model$p0rep
 
   # The scale of the slab prior (how heavy the tails are for the large coefficients)
   stan_data$hs_scale_slab <- config$model$scale_slab
