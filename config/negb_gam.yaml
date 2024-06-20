@@ -5,12 +5,12 @@ data:
   wave: 21
 
 model:
-  name: "negb_brc_m52"
+  name: "negb_gam"
   M: 30
   C: 1.5
-  hatGamma: 2.32
-  hatKappa: 0.635
-  hatEta: 1.11
+  hatGamma: 1.37
+  hatZeta: 0.81
+  hatEta: 1.23
 
 mcmc:
   seed: 0
