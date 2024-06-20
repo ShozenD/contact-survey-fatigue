@@ -40,7 +40,6 @@ data {
   array[N] int part_idx; // participant index
   array[N] int w_idx;    // Wave variable
   array[N] int r_idx;    // Repeat variable (may be transformed in a non-linear fashion)
-  vector[N] y_lag;       // lagged response variable (AR1)
 
   vector[N_wave] w;     // A array of the number of waves
   vector[N_repeat-1] r; // A array of the number of repeats
@@ -54,13 +53,11 @@ transformed data{
 
   // Standardize repeat variable
   vector[N_repeat-1] r_norm = r / max(r);
-
-  // Adhoc fix to prevent overflow (not very elegant...)
-  // vector[N] log_y_lag = log(y_lag + 1);
 }
 
 parameters {
   real alpha;                // Intercept
+  real<lower=0> sigma_beta;  // Prior variance for the coefficients
   vector[P] beta;            // dummy coefficients
   real<lower=0> reciprocal_phi; // Reciprocal of the dispersion parameter
 
@@ -69,12 +66,9 @@ parameters {
   real<lower=0> gp_time_scale;
   real<lower=0> gp_time_lenscale;
 
-  real<lower=0> alpha_repeat;    // Logistic function: intercept
-  real<lower=0> beta_repeat;     // Logistic function: coefficient for the log term
-  real<lower=0> gamma_repeat;    // Logistic function: scale parameter
-
-  // Auto-regressive parameter
-  // real phi;
+  real zeta;             // Hill function: intercept
+  real<lower=0> eta;     // Hill function: coefficient for the log term
+  real<lower=0> gamma;    // Hill function: scale parameter
 }
 
 transformed parameters {
@@ -83,7 +77,7 @@ transformed parameters {
 
   vector[N_repeat] rho;
   rho[1] = 0;
-  rho[2:N_repeat] = - gamma_repeat * logistic(r_norm, alpha_repeat, beta_repeat);
+  rho[2:N_repeat] = - gamma * logistic(r_norm, zeta, eta);
 
   // Linear predictor
   vector[N] log_lambda; // log rate
@@ -93,23 +87,22 @@ transformed parameters {
 model {
   /* ===== Model Priors ===== */
   target += normal_lpdf(alpha | 0, 10);
-  target += normal_lpdf(beta | 0, 1);
+  target += cauchy_lpdf(sigma_beta | 0, 1);
+  target += normal_lpdf(beta | 0, sigma_beta);
   target += exponential_lpdf(reciprocal_phi | 1);
-
-  // Auto-regressive parameter for each participant
-  // target += normal_lpdf(phi | 0, 1);
 
   // Gaussian process priors
   target += normal_lpdf(gp_time_mu | 0, 1);
-  target += gamma_lpdf(gp_time_scale | 5, 5);
-  target += gamma_lpdf(gp_time_lenscale | 5, 1);
+  target += inv_gamma_lpdf(gp_time_scale | 5, 1);
+  target += inv_gamma_lpdf(gp_time_lenscale | 5, 1);
 
-  target += gamma_lpdf(alpha_repeat | 1, 1);
-  target += gamma_lpdf(beta_repeat | 1, 1);
-  target += gamma_lpdf(gamma_repeat | 1, 1);
-
+  // Hill function priors
+  target += normal_lpdf(gamma | 0, 1);
+  target += normal_lpdf(zeta | 0, 1);
+  target += exponential_lpdf(eta | 1);
+  
   // likelihood
-  target += neg_binomial_2_lpmf(y | exp(log_lambda), 1.0/reciprocal_phi);
+  target += neg_binomial_2_log_lpmf(y | log_lambda, 1.0/reciprocal_phi);
 }
 
 generated quantities {
@@ -117,7 +110,7 @@ generated quantities {
   array[N] real log_lik; // log likelihood
 
   for (n in 1:N) {
-    yhat[n] = neg_binomial_2_rng(exp(log_lambda[n]), 1.0/reciprocal_phi);
-    log_lik[n] = neg_binomial_2_lpmf(y[n] | exp(log_lambda[n]), 1.0/reciprocal_phi);
+    yhat[n] = neg_binomial_2_log_rng(log_lambda[n], 1.0/reciprocal_phi);
+    log_lik[n] = neg_binomial_2_log_lpmf(y[n] | log_lambda[n], 1.0/reciprocal_phi);
   }
 }
