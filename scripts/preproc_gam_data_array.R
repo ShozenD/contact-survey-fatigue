@@ -167,9 +167,9 @@ stan_data <- list(
   x_hsgp = x_hsgp
 )
 
-file_name <- paste("covimod-wave-21", "increp", as.character(REPEAT), sep = "-")
+file_name <- paste("covimod-wave", config$data$wave, "increp", as.character(REPEAT), sep = "-")
 file_name <- paste0(file_name, ".rds")
-saveRDS(data, file.path("data/silver", file_name))
+saveRDS(stan_data, file.path("data/silver", file_name))
 
 cat(" DONE!\n")
 
