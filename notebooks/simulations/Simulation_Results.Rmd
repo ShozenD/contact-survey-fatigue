@@ -1,0 +1,67 @@
+```{r}
+library(devtools)
+library(readr)
+library(cmdstanr)
+library(data.table)
+library(reshape2)
+library(ggplot2)
+
+load_all()
+```
+
+```{r}
+fit_ind <- readRDS("~/Imperial/contact-survey-fatigue-outputs/stan_fits/negb_brc_m52_sim_ind.rds")
+fit_agg <- readRDS("~/Imperial/contact-survey-fatigue-outputs/stan_fits/negb_brc_m52_sim_agg.rds")
+```
+
+```{r}
+po_ind <- fit_ind$draws(variables = c("alpha", "log_m"), format = "matrix")
+po_agg <- fit_agg$draws(variables = c("alpha", "log_m"), format = "matrix")
+
+cint_matrix_ind <- extract_cint_matrix(po_ind)
+cint_matrix_agg <- extract_cint_matrix(po_agg)
+
+# Contact matrix
+cint_matrix_ind_sum <- summarise_cint_matrix(cint_matrix_ind)
+cint_matrix_agg_sum <- summarise_cint_matrix(cint_matrix_agg)
+
+# Marginal contact intensity
+cint_margin_ind_sum <- summarise_cint_marginal(cint_matrix_ind)
+cint_margin_agg_sum <- summarise_cint_marginal(cint_matrix_agg)
+```
+
+### Contact matrix
+```{r}
+cint_matrix_ind_sum$type <- "Individual level model"
+cint_matrix_agg_sum$type <- "Population level model"
+
+cint_matrix_sum <- rbind(cint_matrix_ind_sum, cint_matrix_agg_sum)
+
+ggplot(cint_matrix_sum, aes(x = part_age, y = cont_age, fill = M)) +
+  geom_tile() +
+  viridis::scale_fill_viridis(option = "H") +
+  facet_wrap(~type) +
+  labs(title = "Contact matrix",
+       x = "Age of contacting individuals",
+       y = "Age of contacted individuals",
+       fill = "Contact intensity") +
+  theme_minimal()
+```
+
+
+### Marginal contact intensity
+```{r}
+cint_margin_ind_sum$type <- "Individual level model"
+cint_margin_agg_sum$type <- "Population level model"
+
+cint_margin_sum <- rbind(cint_margin_ind_sum, cint_margin_agg_sum)
+
+ggplot(cint_margin_sum, aes(x = part_age, y = M)) +
+  geom_line(aes(color = type)) +
+  geom_ribbon(aes(ymin = CL, ymax = CU, fill = type), alpha = 0.3) +
+  scale_x_continuous(expand = c(0,0)) +
+  labs(title = "Marginal contact intensity",
+       x = "Age of contacting individuals",
+       y = "Contact intensity") +
+  theme_minimal()
+```

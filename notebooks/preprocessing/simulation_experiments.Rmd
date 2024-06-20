@@ -1,0 +1,65 @@
+```{r}
+# Load libraries
+library(readr)
+library(data.table)
+library(ggplot2)
+
+# Load data
+cint <- read_rds("~/Imperial/contact-survey-fatigue/data/simulations/intensity/preCOVID/data.rds")
+
+# Load COVIMOD data
+covimod <- read_rds("~/Imperial/contact-survey-fatigue/data/silver/covimod-wave-21.rds")
+```
+
+```{r}
+# Sum over gender
+cint <- cint[, .(cnt_int = sum(cntct_intensity),
+                 pop = sum(pop)),
+             by = .(age, alter_age)]
+```
+
+```{r}
+# The number of participants in each age group
+cint[, part := covimod$offN[age + 1]]
+```
+
+```{r}
+# Generate unique random participant IDs with one character and three numbers
+set.seed(123)
+sample_size <- covimod$offN[age + 1]
+N <- sum(sample_size)
+part_id <- paste0(sample(LETTERS, N, replace = TRUE),
+                  sample(LETTERS, N, replace = TRUE),
+                  sample(0:9, N, replace = TRUE),
+                  sample(0:9, N, replace = TRUE),
+                  sample(0:9, N, replace = TRUE))
+
+part_id <- unique(part_id)
+```
+
+```{r}
+age <- unique(cint$age)
+sample_size <- covimod$offN[age + 1]
+
+# Participant age
+part_age <- c()
+for (i in 1:length(age)) {
+  part_age <- c(part_age, rep(age[i], sample_size[i]))
+}
+
+# Shuffle the participant age
+part_age <- sample(part_age)
+```
+
+```{r}
+dt <- data.table(part_id = part_id,
+                 part_age = part_age)
+```
+
+```{r}
+dt
+```
+
+
+
+

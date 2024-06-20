@@ -1,0 +1,197 @@
+```{r}
+# Load library
+library(devtools)
+library(data.table)
+library(tidyverse)
+load_all()
+
+# Load data
+data <- readRDS("~/Imperial/contact-survey-fatigue/data/simulations/intensity/preCOVID/data.rds")
+```
+
+```{r}
+# Stratify age of contacting individuals
+data <- stratify_age(data, "alter_age", "alter_age_strata")
+
+# Group by age and gender
+# Sum over alter_age and gender for cntct_intensity
+dt_cint <- data[, .(cint = sum(cntct_intensity)), by = .(age, alter_age_strata, gender)]
+
+# Reduce the contact intensity (current numbers are not realistic)
+dt_cint[, cint := cint / 5]
+
+# Quick visual check
+ggplot(dt_cint, aes(age, alter_age_strata)) +
+  geom_tile(aes(fill = cint)) +
+  scale_fill_viridis_c() +
+  facet_wrap(~gender) +
+  theme_minimal()
+```
+
+## Generate participant data
+```{r}
+# Load COVIMOD wave 21 participant data
+covimod <- readRDS("~/Imperial/contact-survey-fatigue/data/COVIMOD/COVIMOD_data_2022-12-29.rds")
+dt_part <- covimod$part[wave == 21]
+
+# Remove participants with missinge gender
+dt_part <- dt_part[!is.na(gender)]
+
+# Impute missing age
+dt_part <- fill_missing_child_ages(dt_part)
+dt_part <- dt_part[, .(new_id, imp_age, gender)]
+setnames(dt_part, "imp_age", "age")
+
+# Keep only participants between age 6 to 49
+dt_part <- dt_part[age >= 6 & age <= 49]
+```
+
+```{r}
+# Generate simulated contact count data
+generate_sim_cnts <- function(dt_part, dt_cint, id) {
+  .age <- dt_part[new_id == id]$age       # Age of participant
+  .gender <- dt_part[new_id == id]$gender # Gender of participant
+  
+  cint <- dt_cint[age == .age & gender == .gender]$cint # Vector of contact intensity
+  
+  cnt_age_strata <- unique(dt_cint$alter_age_strata) # Unique age strata in contact intensity data
+  data.table(
+    id = id,
+    age = .age,
+    gender = .gender,
+    cnt_age_strata = cnt_age_strata,
+    y = rpois(length(cnt_age_strata), cint) # Simulated contact count
+  )
+}
+
+dt_sim <- map_dfr(dt_part$new_id, ~generate_sim_cnts(dt_part, dt_cint, .x))
+
+# Assign new ID by participant
+dt_sim[, new_id := .GRP, by = id]
+head(dt_sim)
+```
+
+```{r}
+# Make age_idx and cnt_age_strata_idx
+min_age <- min(dt_sim$age)
+dt_sim[, `:=`(
+  age_idx = age - min_age + 1,
+  cnt_age_strata_idx = as.numeric(cnt_age_strata) - 1
+)]
+
+# Make an aggregated version
+dt_sim_agg <- dt_sim[, .(y = sum(y), N = .N), by = .(age_idx, cnt_age_strata_idx)]
+dt_sim_agg <- dt_sim_agg[order(cnt_age_strata_idx, age_idx)] # Sort so that it is in column major order
+
+# Quick visual check
+ggplot(dt_sim_agg, aes(age_idx, cnt_age_strata_idx)) +
+  geom_tile(aes(fill = y)) +
+  scale_fill_viridis_c() +
+  theme_minimal() +
+  theme(aspect.ratio = 1)
+```
+
+```{r}
+# Population offsets
+dt_pop <- distinct(data[, .(alter_age, alter_gender, pop)])
+dt_pop <- dt_pop[, .(pop = sum(pop)), by = alter_age]
+```
+
+
+### Stan data
+For reference
+```{r}
+# Make Stan data
+A <- length(unique(dt_sim$age))
+C <- length(unique(dt_sim$cnt_age_strata))
+
+stan_data <- list(
+  Nobs = length(dt_sim$y),
+  Npart = length(unique(dt_sim$id)),
+  
+  A = A,
+  A2 = A * (A + 1) / 2,
+  C = C,
+  
+  offP = dt_pop$pop,
+  
+  Y = dt_sim$y,
+  part_idx = dt_sim$new_id,
+  
+  age_idxset = as.matrix(dt_sim[, .(age_idx, cnt_age_strata_idx)]),
+  age_strata_map = make_age_strata_map_sim(unique(dt_sim$cnt_age_strata), A, C),
+  
+  M1 = 30,
+  M2 = 30,
+  C1 = 1.5,
+  C2 = 1.5,
+  
+  Xhsgp = scale(make_nn_lowertri_idxset(A)),
+  sym_from_lowertri_idxset = make_sym_from_lowertri_idx(A),
+  S = make_S_matrix(30, 30)
+)
+
+# Save Stan data
+saveRDS(stan_data, "../../data/simulations/stan_data/preCOVID_ind.rds")
+```
+
+```{r}
+A <- length(unique(dt_sim_agg$age_idx))
+C <- length(unique(dt_sim_agg$cnt_age_strata_idx))
+stan_data_2 <- list(
+  N = length(dt_sim_agg$y),
+  
+  A = A,
+  A2 = A * (A + 1) / 2,
+  C = C,
+  
+  offN = dt_sim_agg$N,
+  offP = dt_pop$pop,
+  
+  Y = dt_sim_agg$y,
+  
+  age_strata_map = make_age_strata_map_sim(unique(dt_sim$cnt_age_strata), A, C),
+  
+  M1 = 30,
+  M2 = 30,
+  C1 = 1.5,
+  C2 = 1.5,
+  
+  Xhsgp = scale(make_nn_lowertri_idxset(A)),
+  sym_from_lowertri_idxset = make_sym_from_lowertri_idx(A),
+  S = make_S_matrix(30, 30)
+)
+
+# Save Stan data
+saveRDS(stan_data_2, "../../data/simulations/stan_data/preCOVID_agg.rds")
+```
+
+```{r}
+# Quick tests
+library(cmdstanr)
+stan_model <- cmdstan_model("../../stan_models/negb_brc_m52_sim_ind.stan", compile = TRUE)
+
+stan_fit <- stan_model$sample(
+  data = stan_data,
+  chains = 2,
+  parallel_chains = 2,
+  iter_warmup = 500,
+  iter_sampling = 1000
+)
+```
+
+```{r}
+stan_model <- cmdstan_model("../../stan_models/negb_brc_m52_sim_agg.stan", compile = TRUE)
+
+stan_fit <- stan_model$sample(
+  data = stan_data_2,
+  chains = 2,
+  parallel_chains = 2,
+  iter_warmup = 500,
+  iter_sampling = 1000
+)
+```
+
+
+
+
