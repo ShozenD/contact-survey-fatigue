@@ -54,6 +54,9 @@ data/*
 # Ignore configuration files
 config/*
 
+# Ignore tables_figures
+tables_figures/*
+
 # Ignore all mac files
 *.DS_Store
 
