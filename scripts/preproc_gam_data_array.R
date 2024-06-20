@@ -6,7 +6,6 @@ library(dplyr)
 library(stringr)
 library(data.table)
 library(devtools)
-library(sf)
 load_all()
 
 # ========== Parse command line arguments ==========
@@ -19,7 +18,8 @@ cli_args <- parse_args(OptionParser(option_list = option_list))
 # ========== Load data ==========
 cat(" Loading data and configurations...\n")
 covimod_data <- read_rds("./data/COVIMOD/COVIMOD_data_2022-12-29.rds")
-nuts <- read_sf(file.path("data", "NUTS_RG_20M_2021_3035.geojson"))
+nuts <- read_rds(file.path("data", "nuts_info.rds"))
+
 config <- read_yaml(file.path("config", cli_args$config_file))
 REPEAT <- cli_args$arr_idx - 1
 
