@@ -9,7 +9,7 @@ model:
   M: 30
   C: 1.5
   hatGamma: 2.32
-  hatKappa: 0.635
+  hatZeta: 0.635
   hatEta: 1.11
 
 mcmc:
