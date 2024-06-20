@@ -1,4 +1,5 @@
 out_dir: "/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
+experiment_name: "pois_longit_logistic"
 
 model:
   name: "pois_longit_logistic"
@@ -6,7 +7,8 @@ model:
 mcmc:
   seed: 0
   iter_warmup: 500
-  iter_sampling: 1000
+  iter_sampling: 2000
   chains: 4
   parallel_chains: 4
-  max_treedepth: 11
+  max_treedepth: 12
+  

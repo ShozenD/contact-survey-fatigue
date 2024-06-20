@@ -1,11 +1,11 @@
 out_dir: "/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
-experiment_name: "negb_brc_m52_sim_ind"
+experiment_name: "negb_brc_m52_sim_agg"
 
 data:
-  fname: "preCOVID_ind.rds"
+  fname: "preCOVID_agg.rds"
 
 model:
-  name: "negb_brc_m52_sim_ind"
+  name: "negb_brc_m52_sim_agg"
   M1: 30
   M2: 30
   C1: 1.5
