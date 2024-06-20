@@ -1,0 +1,27 @@
+```{r}
+library(yaml)
+library(optparse)
+library(readr)
+library(cmdstanr)
+library(devtools)
+load_all()
+```
+
+```{r}
+config <- read_yaml(file.path("../../config", "zip_horseshoe_balanced.yaml"))
+stan_data <- read_rds(file.path("../../../contact-survey-fatigue-outputs", "stan_data", "zip_horseshoe_2.rds"))
+
+cat(" Loading the fitted model...\n")
+fit <- read_rds(file.path("../../../contact-survey-fatigue-outputs", "stan_fits", "zip_horseshoe_13.rds"))
+
+cat(" Plotting baseline effects...\n")
+plt_baseeff <- plot_baseline_effects(fit, stan_data, config, "./")
+plt_baseeff
+
+cat(" Plotting repeat effects...\n")
+plt_repeff <- plot_repeat_effects(fit, stan_data, config, "./")
+plt_repeff
+
+cat(" Done!\n")
+```
+

@@ -1,0 +1,548 @@
+```{r messages=FALSE, warning=FALSE}
+library(yaml)
+library(readr)
+library(purrr)
+library(data.table)
+library(cmdstanr)
+library(loo)
+library(posterior)
+library(bayesplot)
+library(ggplot2)
+library(devtools)
+library(patchwork)
+load_all()
+
+theme_set(theme_bw())
+```
+
+## Load the data
+```{r}
+df.w4 <- read_rds("../data/silver/covimod_wave_4.rds")
+df.w21 <- read_rds("../data/silver/covimod_varselect_wave_21.rds")
+```
+
+## Define preprocessing functions
+```{r}
+make_design_matrices <- function(data, remove_first_dummy = TRUE){
+  # ===== Preprocessing =====
+  data <- mutate(
+    data,
+    job = case_when(
+      job == "Student/Pupil" ~ "student",
+      job == "Nursery or pre-school" ~ "preschool",
+      job == "Raised-at-home-toddler" ~ "raised_at_home",
+      job == "Employed full-time (34 hours or more)" ~ "full_time",
+      job == "Employed part-time (less than 34 hours)" ~ "part_time",
+      job == "Full-time parent, homemaker" ~ "full_time_parent",
+      job == "Self employed" ~ "self_employed",
+      job == "Unemployed and not looking for a job" ~ "unemployed_not_looking",
+      job == "Unemployed but looking for a job" ~ "unemployed_looking",
+      job == "Retired" ~ "retired",
+      job == "long-term sick or disabled" ~ "long_term_sick",
+      TRUE ~ job
+    ),
+    age_strata = ifelse(age_strata %in% c("0-4", "5-9", "10-14"),
+                        paste(job, age_strata, sep = "_"),
+                        as.character(age_strata)),
+    age_strata = ifelse(age_strata %in% c("preschool_0-4", "preschool_5-9"), "preschool_0-5", age_strata),
+    age_strata = ifelse(age_strata %in% c("raised_at_home_0-4", "raised_at_home_5-9"), "raised_at_home_0-5", age_strata),
+    age_strata = ifelse(age_strata == "student_5-9", "student_6-9", age_strata),
+    job = ifelse(job %in% c("preschool", "raised_at_home"), NA, job),
+    job = ifelse(age_strata %in% c("student_6-9", "student_10-14"), NA, job)
+  )
+
+  var_names <- c("gender", "age_strata", "hh_size")
+  X <- fastDummies::dummy_cols(select(data, all_of(var_names)),
+                               select_columns = var_names,
+                               ignore_na = TRUE,
+                               remove_first_dummy = remove_first_dummy,
+                               remove_selected_columns = TRUE)
+
+  var_names <- c("job", "symp_none", "dow", "urbn_type")
+  Z <- fastDummies::dummy_cols(select(data, all_of(var_names)),
+                               select_columns = var_names,
+                               ignore_na = TRUE,
+                               remove_first_dummy = remove_first_dummy,
+                               remove_selected_columns = TRUE)
+  X[is.na(X)] <- 0
+  Z[is.na(Z)] <- 0
+
+  return(list(X = as.matrix(X), Z = as.matrix(Z)))
+}
+```
+
+## Stage 1
+### Prepare Stan data
+```{r}
+# Wave 4
+ridx <- which(df.w4$repeat_status == 0)
+y.w4 <- df.w4$y[ridx]
+D.w4 <- make_design_matrices(df.w4, FALSE)
+U.w4 <- D.w4$X[ridx, ]
+V.w4 <- D.w4$Z[ridx, ]
+
+standata.w4 <- list(
+  N = length(y.w4),
+  y = y.w4,
+  Pu = ncol(U.w4),
+  U = U.w4,
+  Pv = ncol(V.w4),
+  V = V.w4,
+  
+  p0 = 8,
+  hs_df = 3,
+  hs_df_global = 2,
+  hs_df_slab = 4,
+  hs_scale_slab = 2
+)
+
+# Wave 21
+ridx <- which(df.w21$repeat_status == 0)
+y.w21 <- df.w21$y[ridx]
+D.w21 <- make_design_matrices(df.w21, FALSE)
+U.w21 <- D.w21$X[ridx, ]
+V.w21 <- D.w21$Z[ridx, ]
+
+standata.w21 <- list(
+  N = length(y.w21),
+  y = y.w21,
+  Pu = ncol(U.w21),
+  U = U.w21,
+  Pv = ncol(V.w21),
+  V = V.w21,
+  
+  p0 = 8,
+  hs_df = 3,
+  hs_df_global = 2,
+  hs_df_slab = 4,
+  hs_scale_slab = 2
+)
+```
+
+### Fit models
+```{r}
+fit_model_s1 <- function(standata) {
+  model <- cmdstan_model("../stan_models/pois_varselect_s1.stan", compile = TRUE)
+  fit <- model$sample(data = standata,
+                      chains = 4,
+                      parallel_chains = 4,
+                      iter_warmup = 500,
+                      iter_sampling = 1000,
+                      max_treedepth = 13,
+                      adapt_delta = 0.99,
+                      show_exceptions = FALSE,
+                      refresh = 500)
+  return(fit)
+}
+```
+
+```{r}
+fit.s1.w4 <- fit_model_s1(standata.w4)   # Wave 4
+fit.s1.w21 <- fit_model_s1(standata.w21) # Wave 21
+```
+
+```{r}
+extract_posterior_rate <- function(stanfit) {
+  labels <- c("variable","q5", "q25", "q50", "q75", "q95")
+  p <- c(0.05, 0.25, 0.5, 0.75, 0.95)
+  
+  su <- setDT(summarise_draws(stanfit$draws("cnt_rate"), ~quantile(.x, probs = p)))
+  colnames(su) <- labels
+  return(su)
+}
+```
+
+```{r}
+su.s1.w4 <- extract_posterior_rate(fit.s1.w4)
+su.s1.w21 <- extract_posterior_rate(fit.s1.w21)
+```
+
+```{r}
+clean_labels <- function(su, U, V) {
+  su$varname <- c(colnames(U), colnames(V))
+  su[, variable := stringr::str_split(varname, "_", simplify = TRUE)[, 1]]
+  
+  .pattern <- "(age_strata_student|age_strata|gender|hh_size|job|symp_none|dow|urbn_type)_"
+  su[, category := stringr::str_remove(varname, .pattern)]
+  su[, category := case_when(
+    category == "preschool_0-5" ~ "Preschool (0-5)",
+    category == "raised_at_home_0-5" ~ "Raised at home (0-5)",
+    category == "1" ~ "1 person",
+    category == "2" ~ "2 person",
+    category == "3" ~ "3 person",
+    category == "4" ~ "4 person",
+    category == "5" ~ "5+ person",
+    category == "full_time" ~ "Full-time",
+    category == "part_time" ~ "Part-time",
+    category == "long_term_sick" ~ "Long-term sick",
+    category == "self_employed" ~ "Self-employed",
+    category == "student" ~ "Student",
+    category == "full_time_parent" ~ "Full-time parent",
+    category == "retired" ~ "Retired",
+    category == "unemployed_looking" ~ "Unemployed (seeking)",
+    category == "unemployed_not_looking" ~ "Unemployed (not seeking)",
+    category == "No" ~ "Yes",
+    category == "Yes" ~ "No",
+    TRUE ~ category
+  )]
+  su[, variable := case_when(
+    variable == "age" ~ "Age group",
+    variable == "gender" ~ "Gender",
+    variable == "hh" ~ "Household size",
+    variable == "job" ~ "Employment",
+    variable == "symp" ~ "Symptoms",
+    variable == "dow" ~ "Day of week",
+    variable == "urbn" ~ "Urban type"
+  )]
+  levs <- c("Age group", "Gender", "Household size", "Employment", "Symptoms", "Day of week", "Urban type")
+  su$variable <- factor(su$variable, levels = levs)
+  
+  age.levs <- c("Preschool (0-5)", "Raised at home (0-5)",
+                "6-9", "10-14", "15-19", "20-24", "25-34", "35-44", "45-54", "55-64",
+                "65-69", "70-74", "75-79", "80-84")
+  gender.levs <- c("Male", "Female")
+  hh.levs <- c("1 person", "2 person", "3 person", "4 person", "5+ person")
+  job.levs <- c("Full-time", "Part-time", "Self-employed", "Student", "Retired", "Long-term sick",
+                "Unemployed (seeking)", "Unemployed (not seeking)", "Full-time parent")
+  symp.levs <- c("Yes", "No")
+  dow.levs <- c("Weekday", "Weekend")
+  urbn.levs <- c("Rural", "Intermediate", "Urban")
+  su$category <- factor(su$category,
+                        levels = c(age.levs, gender.levs, hh.levs, job.levs, symp.levs, dow.levs, urbn.levs))
+  return(su)
+}
+
+su.s1.w4 <- clean_labels(su.s1.w4, U.w4, V.w4)
+su.s1.w21 <- clean_labels(su.s1.w21, U.w21, V.w21)
+
+# Select variables
+w4.baseline <- summarise_draws(fit.s1.w4$draws("beta0"), median)$median
+w21.baseline <- summarise_draws(fit.s1.w21$draws("beta0"), median)$median
+threshold <- 0.05 # The percentage increase or decrease
+su.s1.w4[, selected := !between(q50, exp(w4.baseline)*0.95, exp(w4.baseline)*1.05)]
+su.s1.w21[, selected := !between(q50, exp(w21.baseline)*0.95, exp(w21.baseline)*1.05)]
+
+su.s1.w4$wave <- "Wave 4"
+su.s1.w21$wave <- "Wave 21"
+su.s1 <- rbind(su.s1.w4, su.s1.w21)
+su.s1$wave <- factor(su.s1$wave, levels = c("Wave 4", "Wave 21"))
+
+su.s1$x <- as.numeric(su.s1$category)
+```
+
+```{r}
+df.baseline <- data.frame(wave = c("Wave 4", "Wave 21"), median = c(exp(w4.baseline), exp(w21.baseline)))
+df.upper <- data.frame(wave = c("Wave 4", "Wave 21"), median = c(exp(w4.baseline)*1.05, exp(w21.baseline)*1.05))
+df.lower <- data.frame(wave = c("Wave 4", "Wave 21"), median = c(exp(w4.baseline)*0.95, exp(w21.baseline)*0.95))
+
+plt.1 <- ggplot(su.s1, aes(x, q50, group = wave)) +
+  annotate("rect", xmin = 21.5, xmax = Inf, ymin=-Inf, ymax=Inf, alpha=0.2, fill="gray50") +
+  geom_hline(data = df.baseline, aes(yintercept = median), color = "gray50") +
+  geom_hline(data = df.upper, aes(yintercept = median), linetype = "dotted", colour = "gray50") +
+  geom_hline(data = df.lower, aes(yintercept = median), linetype = "dotted", colour = "gray50") +
+  geom_linerange(aes(ymin = q25, ymax = q75, color = variable), position = position_dodge(0.5)) +
+  geom_point(aes(color = variable, shape = wave), fill = "white", size = 2, position = position_dodge(0.5)) +
+  facet_wrap(~factor(wave, levels = c("Wave 4", "Wave 21")), nrow = 2, strip.position = "right") +
+  scale_shape_manual(values = c(21, 24)) +
+  scale_x_continuous(breaks = seq(1, max(su.s1$x)),
+                     labels = sort(unique(su.s1$category)),
+                     expand = c(0.01,0)) +
+  ggsci::scale_color_nejm() +
+  labs(y = "Contact intensity") +
+  theme(
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.ticks = element_blank(),
+    strip.background = element_blank(),
+    plot.margin = margin(0.2, 1, 0.2, 1, "cm"),
+    legend.position = "none",
+    strip.text = element_text(size = 9),
+    axis.text = element_text(size = 8),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_line(linewidth = 0.5)
+  )
+  
+ggsave("../tables_figures/figures/varselect_cnt_int.pdf", width = 17.63, height = 12, units = "cm", dpi = 300)
+```
+
+
+```{r}
+su.s1.w4[, selected :=
+           !(variable %in% c("Gender", "Age group", "Household size"))
+           & !between(q50, exp(w4.baseline)*0.95, exp(w4.baseline)*1.05)]
+su.s1.w21[, selected := 
+            !(variable %in% c("Gender", "Age group", "Household size"))
+            & !between(q50, exp(w21.baseline)*0.95, exp(w21.baseline)*1.05)]
+
+selected.vars.w4 <- su.s1.w4[selected == TRUE, varname]
+selected.vars.w21 <- su.s1.w21[selected == TRUE, varname]
+
+print(selected.vars.w4)
+print(selected.vars.w21)
+```
+
+```{r}
+# Update Stan data
+U.w4 <- cbind(U.w4, V.w4[,selected.vars.w4])
+standata.w4 <- list(
+  N = length(y.w4),
+  y = y.w4,
+  P = ncol(U.w4),
+  U = U.w4
+)
+
+U.w21 <- cbind(U.w21, V.w21[,selected.vars.w21])
+standata.w21 <- list(
+  N = length(y.w21),
+  y = y.w21,
+  P = ncol(U.w21),
+  U = U.w21
+)
+```
+
+```{r}
+model.s1_norm <- cmdstan_model("../stan_models/pois_normal_s1.stan", compile = TRUE)
+fit_vs_s1_norm_wave_4 <- model.s1_norm$sample(data = standata.w4,
+                                                 chains = 4,
+                                                 parallel_chains = 4,
+                                                 iter_warmup = 500,
+                                                 iter_sampling = 1000,
+                                                 max_treedepth = 13,
+                                                 adapt_delta = 0.99)
+
+fit_vs_s1_norm_wave_21 <- model.s1_norm$sample(data = standata.w21,
+                                                  chains = 4,
+                                                  parallel_chains = 4,
+                                                  iter_warmup = 500,
+                                                  iter_sampling = 1000,
+                                                  max_treedepth = 13,
+                                                  adapt_delta = 0.99)
+```
+
+```{r}
+ridx <- which(df.w4$repeat_status == 1)
+y.w4 <- df.w4$y[ridx]
+D.w4 <- make_design_matrices(df.w4, FALSE)
+U.w4 <- D.w4$X[ridx, ]
+V.w4 <- D.w4$Z[ridx, ]
+U.w4 <- cbind(U.w4, V.w4[,selected.vars.w4])
+
+ridx <- which(df.w21$repeat_status == 1)
+y.w21 <- df.w21$y[ridx]
+D.w21 <- make_design_matrices(df.w21, FALSE)
+U.w21 <- D.w21$X[ridx, ]
+V.w21 <- D.w21$Z[ridx, ]
+U.w21 <- cbind(U.w21, V.w21[,selected.vars.w21])
+
+exclude_variables <- c("symp_none_No", "symp_none_Yes", "dow_Weekday", "dow_Weekend")
+W.w4 <- V.w4[, setdiff(colnames(V.w4), exclude_variables)]
+W.w21 <- V.w21[, setdiff(colnames(V.w21), exclude_variables)]
+
+include_variables <- c("age_strata_preschool_0-5",
+                       "age_strata_raised_at_home_0-5",
+                       "age_strata_student_6-9",
+                       "age_strata_student_10-14",
+                       "age_strata_15-19",
+                       "gender_Male",
+                       "gender_Female",
+                       "age_strata_20-24",
+                       "age_strata_25-34",
+                       "age_strata_35-44",
+                       "age_strata_45-54",
+                       "age_strata_55-64",
+                       "age_strata_65-69",
+                       "age_strata_70-74",
+                       "age_strata_75-79",
+                       "age_strata_80-84",
+                       "hh_size_1",
+                       "hh_size_2",
+                       "hh_size_3",
+                       "hh_size_4",
+                       "hh_size_5")
+W.w4 <- cbind(W.w4, U.w4[, include_variables])
+W.w21 <- cbind(W.w21, U.w21[, include_variables])
+
+beta0.w4 <- summarise_draws(fit_vs_s1_norm_wave_4$draws("beta0"))$median
+beta0.w21 <- summarise_draws(fit_vs_s1_norm_wave_21$draws("beta0"))$median
+alpha.w4 <- summarise_draws(fit_vs_s1_norm_wave_4$draws("alpha"))$median
+alpha.w21 <- summarise_draws(fit_vs_s1_norm_wave_21$draws("alpha"))$median
+
+standata.w4 <- list(
+  N = length(y.w4),
+  y = y.w4,
+  Pu = ncol(U.w4),
+  U = U.w4,
+  Pw = ncol(W.w4),
+  W = W.w4,
+  
+  p0 = 1,
+  hs_df = 3,
+  hs_df_global = 2,
+  hs_df_slab = 4,
+  hs_scale_slab = 2,
+  
+  beta0 = beta0.w4,
+  alpha = alpha.w4
+)
+
+standata.w21 <- list(
+  N = length(y.w21),
+  y = y.w21,
+  Pu = ncol(U.w21),
+  U = U.w21,
+  Pw = ncol(W.w21),
+  W = W.w21,
+  
+  p0 = 1,
+  hs_df = 3,
+  hs_df_global = 2,
+  hs_df_slab = 4,
+  hs_scale_slab = 2,
+  
+  beta0 = beta0.w21,
+  alpha = alpha.w21
+)
+```
+
+```{r}
+model <- cmdstan_model("../stan_models/pois_varselect_s2.stan", compile = TRUE)
+fit_s2_wave_4 <- model$sample(data = standata.w4,
+                              chains = 4,
+                              parallel_chains = 4,
+                              iter_warmup = 500,
+                              iter_sampling = 1000,
+                              max_treedepth = 13,
+                              show_exceptions = FALSE,
+                              adapt_delta = 0.99,
+                              refresh = 500)
+
+fit_s2_wave_21 <- model$sample(data = standata.w21,
+                               chains = 4,
+                               parallel_chains = 4,
+                               iter_warmup = 500,
+                               iter_sampling = 1000,
+                               max_treedepth = 13,
+                               adapt_delta = 0.99,
+                               show_exceptions = FALSE,
+                               refresh = 500)
+```
+
+```{r}
+labels <- c("variable","q5", "q25", "q50", "q75", "q95")
+po_gamma_wave_4 <- setDT(summarise_draws(fit_s2_wave_4$draws("gamma"),
+                                         ~quantile(exp(.x) - 1, c(0.05, 0.25, 0.5, 0.75, 0.95))))
+po_gamma_wave_21 <- setDT(summarise_draws(fit_s2_wave_21$draws("gamma"),
+                                          ~quantile(exp(.x) - 1, c(0.05, 0.25, 0.5, 0.75, 0.95))))
+colnames(po_gamma_wave_4) <- labels
+colnames(po_gamma_wave_21) <- labels
+
+po_gamma_wave_4$varname <- colnames(W.w4)
+po_gamma_wave_21$varname <- colnames(W.w21)
+```
+
+```{r}
+clean_labels_s2 <- function(su, W) {
+  su$varname <- colnames(W)
+  su[, variable := stringr::str_split(varname, "_", simplify = TRUE)[, 1]]
+  
+  .pattern <- "(age_strata_student|age_strata|gender|hh_size|job|symp_none|dow|urbn_type)_"
+  su[, category := stringr::str_remove(varname, .pattern)]
+  su[, category := case_when(
+    category == "preschool_0-5" ~ "Preschool (0-5)",
+    category == "raised_at_home_0-5" ~ "Raised at home (0-5)",
+    category == "1" ~ "1 person",
+    category == "2" ~ "2 person",
+    category == "3" ~ "3 person",
+    category == "4" ~ "4 person",
+    category == "5" ~ "5+ person",
+    category == "full_time" ~ "Full-time",
+    category == "part_time" ~ "Part-time",
+    category == "long_term_sick" ~ "Long-term sick",
+    category == "self_employed" ~ "Self-employed",
+    category == "student" ~ "Student",
+    category == "full_time_parent" ~ "Full-time parent",
+    category == "retired" ~ "Retired",
+    category == "unemployed_looking" ~ "Unemployed (seeking)",
+    category == "unemployed_not_looking" ~ "Unemployed (not seeking)",
+    category == "No" ~ "Yes",
+    category == "Yes" ~ "No",
+    TRUE ~ category
+  )]
+  su[, variable := case_when(
+    variable == "age" ~ "Age group",
+    variable == "gender" ~ "Gender",
+    variable == "hh" ~ "Household size",
+    variable == "job" ~ "Employment",
+    variable == "symp" ~ "Symptoms",
+    variable == "dow" ~ "Day of week",
+    variable == "urbn" ~ "Urban type"
+  )]
+  levs <- c("Age group", "Gender", "Household size", "Employment", "Symptoms", "Day of week", "Urban type")
+  su$variable <- factor(su$variable, levels = levs)
+
+  age.levs <- c("Preschool (0-5)", "Raised at home (0-5)",
+                "6-9", "10-14", "15-19", "20-24", "25-34", "35-44", "45-54", "55-64",
+                "65-69", "70-74", "75-79", "80-84")
+  gender.levs <- c("Male", "Female")
+  hh.levs <- c("1 person", "2 person", "3 person", "4 person", "5+ person")
+  job.levs <- c("Full-time", "Part-time", "Self-employed", "Student", "Retired", "Long-term sick",
+                "Unemployed (seeking)", "Unemployed (not seeking)", "Full-time parent")
+  symp.levs <- c("Yes", "No")
+  dow.levs <- c("Weekday", "Weekend")
+  urbn.levs <- c("Rural", "Intermediate", "Urban")
+  su$category <- factor(su$category,
+                        levels = c(age.levs, gender.levs, hh.levs, job.levs, symp.levs, dow.levs, urbn.levs))
+  return(su)
+}
+
+po_gamma_wave_4 <- clean_labels_s2(po_gamma_wave_4, W.w4)
+po_gamma_wave_21 <- clean_labels_s2(po_gamma_wave_21, W.w21)
+po_gamma_wave_4$wave <- "Wave 4"
+po_gamma_wave_21$wave <- "Wave 21"
+po_gamma_comb <- rbind(po_gamma_wave_4, po_gamma_wave_21)
+po_gamma_comb$wave <- factor(po_gamma_comb$wave, levels = c("Wave 4", "Wave 21"))
+
+po_gamma_comb$x <- as.numeric(po_gamma_comb$category)
+
+# Select variables
+plt.2 <- ggplot(po_gamma_comb, aes(x, q50, group = wave)) +
+  annotate("rect", xmin = -Inf, xmax = 30.5, ymin=-Inf, ymax=Inf, alpha=0.2, fill="gray50") +
+  annotate("rect", xmin = 34.5, xmax = Inf, ymin=-Inf, ymax=Inf, alpha=0.2, fill="gray50") +
+  geom_hline(aes(yintercept = -0.05), linetype = "dotted", color = "gray50") +
+  geom_hline(aes(yintercept = 0), color = "gray50") +
+  geom_linerange(aes(ymin = q25, ymax = q75, color = variable), position = position_dodge(0.5)) +
+  geom_point(aes(color = variable, shape = wave), fill = "white", size = 2, position = position_dodge(0.5)) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_x_continuous(breaks = 1:max(po_gamma_comb$x),
+                     labels = levels(po_gamma_comb$category),
+                     expand = c(0.01,0)) +
+  scale_shape_manual(values = c(21, 24)) +
+  ggsci::scale_color_nejm() +
+  labs(y = "% decrease from\npopulation average") +
+  theme(
+    axis.text.x = element_text(size = 8, angle = 45, hjust = 1),
+    axis.title.x = element_blank(),
+    strip.background = element_blank(),
+    plot.margin = margin(0.2, 1, 0.2, 1, "cm"),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.margin = margin(-0.3, 0, 0, 0, "cm"),
+    strip.text = element_text(size = 9),
+    axis.text = element_text(size = 8),
+    axis.title.text = element_text(size = 8),
+    legend.text = element_text(size = 8),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_line(linewidth = 0.5)
+  ) +
+  guides(color = guide_legend(nrow = 2))
+```
+
+```{r}
+(plt.1 / plt.2) + plot_layout(heights = c(2, 1))
+ggsave("../tables_figures/figures/varselect_results.pdf", width = 17.67, height = 17, units = "cm", dpi = 300)
+```
+

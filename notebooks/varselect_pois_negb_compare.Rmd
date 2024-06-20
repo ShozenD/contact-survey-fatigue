@@ -1,0 +1,199 @@
+```{r message = FASLE}
+# Load libraries
+library(yaml)
+library(readr)
+library(data.table)
+library(cmdstanr)
+library(loo)
+library(posterior)
+library(bayesplot)
+library(ggplot2)
+library(devtools)
+load_all()
+
+# Load configurations
+config <- read_yaml("../config/varselect.yaml")
+
+# Load data
+df <- read_rds(file.path("../data", "silver", config$data$fname))
+```
+
+```{r}
+# Make Stan data
+stan_data <- make_stan_data_varselect(df, 1, config)
+```
+
+### Hurdle Poisson model
+```{r}
+# Compile Stan model
+stan_model_hu_pois <- cmdstan_model(file.path("../stan_models", "hurdle_pois_horseshoe_s1.stan"), compile = TRUE)
+
+# Fit Stan model
+config_m1 <- config$stage_1$model_1
+fit_hu_pois <- stan_model_hu_pois$sample(stan_data,
+                                         seed = config_m1$seed,
+                                         iter_warmup = config_m1$iter_warmup,
+                                         iter_sampling = config_m1$iter_sampling,
+                                         chains = config_m1$chains,
+                                         parallel_chains = config_m1$parallel_chains,
+                                         max_treedepth = config_m1$max_treedepth,
+                                         refresh = 100)
+
+# Save model
+out_dir <- file.path(config$out_dir, "stan_fits", config$experiment_name, "stage_1")
+fit_hu_pois$save_object(file.path(out_dir, "m1_hu_pois_hs.rds"))
+```
+
+Compute the ELPD_loo and WAIC
+```{r}
+fit_hu_pois <- read_rds(file.path(config$out_dir, "stan_fits", "varselect", "stage_1", "m1_hu_pois_hs.rds"))
+log_lik <- fit_hu_pois$draws("log_lik")
+y_rep <- fit_hu_pois$draws("y_rep")
+
+loo(log_lik)
+waic(log_lik)
+```
+
+```{r}
+log_lik_su <- summarise_draws(log_lik)
+log_lik_su$y <- stan_data$y
+
+y_rep_su <- summarise_draws(y_rep, ~quantile(.x, c(0.025, 0.5, 0.975)))
+
+df_ppc <- data.table(y = stan_data$y)
+df_ppc <- cbind(df_ppc, y_rep_su)
+df_ppc[, within.CI := between(y, `2.5%`, `97.5%`)]
+mean(df_ppc$within.CI)
+```
+
+
+Visualise the posterior distribution of the coefficients
+```{r}
+dt_po_beta <- summarise_draws(fit_hu_pois$draws("beta"), ~quantile(.x, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
+dt_po_zbeta <- summarise_draws(fit_hu_pois$draws("zbeta"), ~quantile(.x, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
+dt_po_beta$varname <- colnames(stan_data$X)
+dt_po_zbeta$varname <- colnames(stan_data$X)
+
+ggplot(dt_po_beta, aes(x = varname, y = `50%`)) +
+  geom_point() +
+  geom_linerange(aes(ymin = `2.5%`, ymax = `97.5%`)) +
+  geom_linerange(aes(ymin = `10%`, ymax = `90%`), linewidth = 1) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(dt_po_zbeta, aes(x = varname, y = `50%`)) +
+  geom_point() +
+  geom_linerange(aes(ymin = `2.5%`, ymax = `97.5%`)) +
+  geom_linerange(aes(ymin = `10%`, ymax = `90%`), linewidth = 1) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Hurdle Negative Binomial model
+```{r}
+# Compile Stan model
+stan_model_hu_negb <- cmdstan_model(file.path("../stan_models", "hurdle_negb_horseshoe_s1.stan"), compile = TRUE)
+
+# Fit Stan model
+config_m1 <- config$stage_1$model_1
+fit_hu_negb <- stan_model_hu_negb$sample(stan_data,
+                                         seed = config_m1$seed,
+                                         iter_warmup = config_m1$iter_warmup,
+                                         iter_sampling = config_m1$iter_sampling,
+                                         chains = config_m1$chains,
+                                         parallel_chains = config_m1$parallel_chains,
+                                         max_treedepth = config_m1$max_treedepth,
+                                         refresh = 100)
+
+# Save model
+out_dir <- file.path(config$out_dir, "stan_fits", config$experiment_name, "stage_1")
+fit_hu_negb$save_object(file.path(out_dir, "m1_hu_negb_hs.rds"))
+```
+
+Compute the ELPD_loo and WAIC
+```{r}
+fit_hu_negb <- read_rds(file.path(config$out_dir, "stan_fits", "varselect", "stage_1", "m1_hu_negb_hs.rds"))
+log_lik <- fit_hu_negb$draws("log_lik")
+loo(log_lik)
+waic(log_lik)
+
+log_lik_su <- summarise_draws(log_lik)
+log_lik_su$y <- stan_data$y
+
+ggplot(log_lik_su, aes(y, median)) +
+  geom_point()
+```
+
+Visualise the posterior distribution of the coefficients
+```{r}
+dt_po_beta <- summarise_draws(fit_hu_negb$draws("beta"), ~quantile(.x, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
+dt_po_zbeta <- summarise_draws(fit_hu_negb$draws("zbeta"), ~quantile(.x, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
+dt_po_beta$varname <- colnames(stan_data$X)
+dt_po_zbeta$varname <- colnames(stan_data$X)
+
+ggplot(dt_po_beta, aes(x = varname, y = `50%`)) +
+  geom_point() +
+  geom_linerange(aes(ymin = `2.5%`, ymax = `97.5%`)) +
+  geom_linerange(aes(ymin = `10%`, ymax = `90%`), linewidth = 1) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(dt_po_zbeta, aes(x = varname, y = `50%`)) +
+  geom_point() +
+  geom_linerange(aes(ymin = `2.5%`, ymax = `97.5%`)) +
+  geom_linerange(aes(ymin = `10%`, ymax = `90%`), linewidth = 1) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+summarise_draws(fit_hu_negb$draws("alpha"))
+```
+
+```{r}
+dt_ppc <- summarise_draws(fit_hu_negb$draws("y_rep"), ~quantile(.x, probs = c(0.025, 0.5, 0.975)))
+dt_ppc$y <- stan_data$y
+dt_ppc$within.CI <- ifelse(dt_ppc$y >= dt_ppc$`2.5%` & dt_ppc$y <= dt_ppc$`97.5%`, 1, 0)
+
+mean(dt_ppc$within.CI)
+```
+
+
+```{r}
+# Compile Stan model
+stan_model_negb <- cmdstan_model(file.path("../stan_models", "hurdle_negb_normal_s1.stan"), compile = TRUE)
+
+# Fit Stan model
+config_m1 <- config$stage_1$model_1
+stan_data$zP <- stan_data$P
+stan_data$zX <- stan_data$X
+fit_negb <- stan_model_negb$sample(stan_data,
+                                   seed = config_m1$seed,
+                                   iter_warmup = config_m1$iter_warmup,
+                                   iter_sampling = config_m1$iter_sampling,
+                                   chains = config_m1$chains,
+                                   parallel_chains = config_m1$parallel_chains,
+                                   max_treedepth = config_m1$max_treedepth,
+                                   refresh = 100)
+
+# Save model
+out_dir <- file.path(config$out_dir, "stan_fits", config$experiment_name, "stage_1")
+fit_negb$save_object(file.path(out_dir, "m1_hu_negb.rds"))
+```
+
+```{r}
+dt_po_beta <- summarise_draws(fit_negb$draws("beta"))
+dt_po_zbeta <- summarise_draws(fit_negb$draws("zbeta"))
+dt_po_beta$varname <- colnames(stan_data$X)
+dt_po_zbeta$varname <- colnames(stan_data$X)
+
+ggplot(dt_po_beta, aes(x = varname, y = median)) +
+  geom_point() +
+  geom_linerange(aes(ymin = q5, ymax = q95)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(dt_po_zbeta, aes(x = varname, y = median)) +
+  geom_point() +
+  geom_linerange(aes(ymin = q5, ymax = q95)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
