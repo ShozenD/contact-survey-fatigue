@@ -40,7 +40,7 @@ data
   array[N] int rid;  // Index for the number of repeats
   array[N] int jid;  // Job dummy variables (for repeat effects)
   real hatGamma;         // Shape parameter for gamma prior (posterior median of the longitudinal model)
-  real hatKappa;         // Shape parameter for zeta prior (posterior median of the longitudinal model)
+  real hatZeta;         // Shape parameter for zeta prior (posterior median of the longitudinal model)
   real hatEta;           // Shape parameter for eta prior   (posterior median of the longitudinal model)
 
   // ========== HSGP ==========

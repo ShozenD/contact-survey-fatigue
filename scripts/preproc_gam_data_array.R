@@ -207,19 +207,16 @@ rid <- dt_part$rep
 # ===== Prepare indexes =====
 # Age
 aid <- dt_part$imp_age + 1
-aid[aid > 85] <- 85
 
 # ===== HSGP =====
-a_min <- 0
-a_max <- 84
-x_hsgp <- seq(a_min, a_max)
+x_hsgp <- seq(0, 84)
 x_hsgp <- (x_hsgp - mean(x_hsgp)) / sd(x_hsgp)
 
 # ===== Gather and export the data =====
 stan_data <- list(
   # Sample size and dimensions
   N = nrow(dt_y),
-  A = max(aid),
+  A = length(x_hsgp),
   P = ncol(X),
   J = ncol(Z),
   R = max(dt_part$rep) + 1,
