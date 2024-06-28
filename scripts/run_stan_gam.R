@@ -13,9 +13,6 @@ option_list <- list(
 )
 cli_args <- parse_args(OptionParser(option_list = option_list))
 
-cli_args$config_file <- "negb_gam.yaml"
-REPEAT <- 20
-
 cat(" Loading configurations...\n")
 config <- read_yaml(file.path("config", cli_args$config_file))
 
