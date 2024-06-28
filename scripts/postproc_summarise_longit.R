@@ -36,19 +36,22 @@ if (!str_detect(config$model$name, "_noadj")) { # If the model adjust for the re
   saveRDS(df_po_rho, file.path(out_dir, "post_rho.rds"))
 
   # Extract posterior samples of gamma, kappa, and eta (the repeat effects)
-  df_po_rep_parms <- summarise_draws(fit$draws(variables = c("gamma_repeat", "alpha_repeat", "beta_repeat")), ~quantile5(.x))
-  saveRDS(df_po_rep_parms, file.path(out_dir, "post_rep_parms.rds"))
+  if (str_detect(config$model$name, "logistic")){
+    df_po_rep_parms <- summarise_draws(fit$draws(variables = c("gamma", "zeta", "eta")), ~quantile5(.x))
+    saveRDS(df_po_rep_parms, file.path(out_dir, "post_hill_parms.rds"))
+  }
 }
 
 # Extract posterior samples of tau (time effect)
-po <- fit$draws(variables = c("alpha", "tau"), format = "matrix")
-po <- sweep(po[, -1], 1, po[, 1], "+")
+po <- fit$draws(variables = c("alpha", "tau", "beta[5]"), format = "matrix")
+tmp <- sweep(po[,"alpha"], 1, po[,"beta[5]"], "+")
+po <- sweep(po[, str_detect(colnames(po), "tau")], 1, tmp, "+")
 df_po_tau <- summarise_draws(po, ~quantile5(exp(.x)))
 saveRDS(df_po_tau, file.path(out_dir, "post_tau.rds"))
 
 # Extract fixed effects
 po_beta <- fit$draws(variables = c("beta"), format = "draws_matrix")
 po_beta_sum <- summarise_draws(po_beta, ~quantile5(.x))
-saveRDS(po_beta_sum, file.path(out_dir, "po_beta_sum.rds"))
+saveRDS(po_beta_sum, file.path(out_dir, "po_beta.rds"))
 
 cat(" DONE!\n")
