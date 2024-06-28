@@ -15,6 +15,9 @@ option_list <- list(
 )
 cli_args <- parse_args(OptionParser(option_list = option_list))
 
+cli_args$config_file <- "negb_gam.yaml"
+cli_args$arr_idx <- 21
+
 # ========== Load data ==========
 cat(" Loading data and configurations...\n")
 covimod_data <- read_rds("./data/COVIMOD/COVIMOD_data_2022-12-29.rds")
@@ -37,7 +40,7 @@ dt_part[, rep := seq_len(.N) - 1, by = .(new_id)]
 # Filter participants by their number of repeats
 dt_part <- dt_part[rep <= REPEAT]
 
-# Extract data from the specified wave
+# Fiter data by wave
 dt_part <- dt_part[wave == config$data$wave]
 dt_hh <- dt_hh[wave == config$data$wave]
 dt_nhh <- dt_nhh[wave == config$data$wave]
@@ -48,8 +51,9 @@ dt_part <- dt_part[order(new_id)]
 # Remove participants with missing values in the gender column
 dt_part <- dt_part[!is.na(gender)]
 
-# Remove participants with missing values in the age_strata column
+# Remove participants with missing values for age and gender
 dt_part <- dt_part[!is.na(age_strata)]
+dt_part <- dt_part[!is.na(gender)]
 dt_part <- dt_part[age_strata != "85+"]
 
 # Impute missing ages for children
@@ -59,7 +63,7 @@ dt_part <- fill_missing_child_ages(dt_part, seed = 123)
 dt_part <- preproc_age_job(dt_part)
 
 # Preprocess household size variable
-dt_part[, hh_size := ifelse(hh_p_incl_0 >= 5, "5+", as.character(hh_p_incl_0))]
+dt_part[, hh_size := ifelse(hh_p_incl_0 >= 5, "5+", hh_p_incl_0)]
 dt_part[, hh_p_incl_0 := NULL]
 
 # Calculate day of week
@@ -99,102 +103,50 @@ dt_y[is.na(y_nhh), y_nhh := 0]
 # Sum the three columns to get the total number of contacts
 dt_y[, y := y_grp + y_hh + y_nhh]
 
+# Merge the y vector with the participant data
+dt_part <- merge(dt_part, dt_y, by = "new_id")
+
+# Drop extreme values
+dt_part <- dt_part[y < quantile(dt_part$y, 0.99)]
+
 # ===== Prepare participant characteristics X =====
-## Gender
-gender_dum <- fastDummies::dummy_cols(dt_part[,.(gender)],
-                                      select_columns = "gender",
-                                      remove_selected_columns = TRUE,
-                                      omit_colname_prefix = TRUE)
-gender_dum <- as.matrix(gender_dum)
+make_dummy_matrix <- function(data, variable, include = NULL) {
+  data <- setDT(data)
+  data <- data[, ..variable]
+  data <- fastDummies::dummy_cols(data,
+                                  select_columns = variable,
+                                  remove_selected_columns = TRUE,
+                                  omit_colname_prefix = TRUE)
+  if (!is.null(include)) data <- data[, ..include]
+  data <- as.matrix(data)
+  data[is.na(data)] <- 0
 
-## Household size
-hh_dum <- fastDummies::dummy_cols(
-  dt_part[, .(hh_size)],
-  select_columns = "hh_size",
-  remove_selected_columns = TRUE,
-  omit_colname_prefix = TRUE
+  return(data)
+}
+
+# Make dummy variables
+d_gender <- make_dummy_matrix(dt_part, "gender") # Gender
+d_hh <- make_dummy_matrix(dt_part, "hh_size")    # Household size
+d_job <- make_dummy_matrix(                      # Job
+  dt_part,
+  "job",
+  c("full_time", "self_employed", "student", "long_term_sick", "unemployed_looking", "unemployed_not_looking", "full_time_parent")
 )
-hh_dum <- as.matrix(hh_dum)
-
-## Occupations
-include_jobs <- c("full_time", "self_employed", "student",
-                  "long_term_sick", "unemployed_looking", "unemployed_not_looking",
-                  "full_time_parent")
-job_dum <- fastDummies::dummy_cols(
-  dt_part[, .(job)],
-  select_columns = "job",
-  remove_selected_columns = TRUE,
-  omit_colname_prefix = TRUE
-)
-job_dum <- as.matrix(job_dum[, ..include_jobs])
-job_dum[is.na(job_dum)] <- 0
-
-## Day of week
-dow_dum <- fastDummies::dummy_cols(
-  dt_part[, .(dow)],
-  select_columns = "dow",
-  remove_selected_columns = TRUE,
-  omit_colname_prefix = TRUE
-)
-dow_dum <- as.matrix(dow_dum)
-
-## Population density
-include_urbn <- c("intermediate", "urban")
-urbn_dum <- fastDummies::dummy_cols(
-  dt_part[, .(urbn_type)],
-  select_columns = "urbn_type",
-  remove_selected_columns = TRUE,
-  omit_colname_prefix = TRUE
-)
-urbn_dum <- urbn_dum[, ..include_urbn]
-urbn_dum <- as.matrix(urbn_dum)
-
-X <- cbind(gender_dum, hh_dum, job_dum, dow_dum, urbn_dum)
+d_dow <- make_dummy_matrix(dt_part, "dow")       # Day of week
+d_urbn <- make_dummy_matrix(dt_part, "urbn_type", c("intermediate", "urban")) # Urban type
+X <- cbind(d_gender, d_hh, d_job, d_dow, d_urbn)
 
 # ===== Prepare repeat effects dummy =====
 ## Age variables
 include_age_strata <- unique(dt_part$age_strata)
 include_age_strata <- include_age_strata[!(include_age_strata %in% c("25-34", "35-44"))]
-rdum_age <- fastDummies::dummy_cols(dt_part[, .(age_strata)],
-                                    select_columns = "age_strata",
-                                    remove_selected_columns = TRUE,
-                                    omit_colname_prefix = TRUE)
-rdum_age <- as.matrix(rdum_age[, ..include_age_strata])
-
-## Gender
-include_gender <- c("Female")
-rgender_dum <- fastDummies::dummy_cols(dt_part[, .(gender)],
-                                       select_columns = "gender",
-                                       remove_selected_columns = TRUE,
-                                       omit_colname_prefix = TRUE)
-rgender_dum <- as.matrix(rgender_dum[, ..include_gender])
-
-## Household size
-include_hhsize <- "1"
-rhh_size_dum <- fastDummies::dummy_cols(dt_part[, .(hh_size)],
-                                        select_columns = "hh_size",
-                                        remove_selected_columns = TRUE,
-                                        omit_colname_prefix = TRUE)
-rhh_size_dum <- as.matrix(rhh_size_dum[, ..include_hhsize])
-
-## Jobs
-include_jobs <- c("full_time", "part_time", "self_employed", "student",
-                  "long_term_sick", "unemployed_looking", "unemployed_not_looking")
-rjob_dum <- fastDummies::dummy_cols(dt_part[, .(job)],
-                                    select_columns = "job",
-                                    remove_selected_columns = TRUE,
-                                    omit_colname_prefix = TRUE)
-rjob_dum <- as.matrix(rjob_dum[, ..include_jobs])
-rjob_dum[is.na(rjob_dum)] <- 0
-
-## Population density
-include_urbn <- c("rural", "intermediate")
-rurbn_dum <- fastDummies::dummy_cols(dt_part[, .(urbn_type)],
-                                     select_columns = "urbn_type",
-                                     remove_selected_columns = TRUE,
-                                     omit_colname_prefix = TRUE)
-rurbn_dum <- as.matrix(rurbn_dum[, ..include_urbn])
-Z <- cbind(rdum_age, rgender_dum, rhh_size_dum, rjob_dum, rurbn_dum)
+rd_age <- make_dummy_matrix(dt_part, "age_strata", include_age_strata)
+rd_gender <- make_dummy_matrix(dt_part, "gender", "Female")
+rd_hh <- make_dummy_matrix(dt_part, "hh_size", "1")
+rd_job <- make_dummy_matrix(dt_part, "job", c("full_time", "part_time", "self_employed", "student",
+                                              "long_term_sick", "unemployed_looking", "unemployed_not_looking"))
+rd_urbn <- make_dummy_matrix(dt_part, "urbn_type", c("rural", "intermediate"))
+Z <- cbind(rd_age, rd_gender, rd_hh, rd_job)
 
 jid <- rep(0, nrow(Z))
 for (i in 1:nrow(Z)) {
@@ -215,14 +167,14 @@ x_hsgp <- (x_hsgp - mean(x_hsgp)) / sd(x_hsgp)
 # ===== Gather and export the data =====
 stan_data <- list(
   # Sample size and dimensions
-  N = nrow(dt_y),
+  N = nrow(dt_part),
   A = length(x_hsgp),
   P = ncol(X),
   J = ncol(Z),
   R = max(dt_part$rep) + 1,
 
   # Outcome
-  Y = dt_y$y,
+  Y = dt_part$y,
 
   # Covariates
   X = X,
