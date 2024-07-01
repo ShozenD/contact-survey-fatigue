@@ -20,6 +20,9 @@ cat(" Loading data and configurations...\n")
 covimod_data <- read_rds("./data/COVIMOD/COVIMOD_data_2022-12-29.rds")
 nuts <- read_rds(file.path("data", "nuts_info.rds"))
 
+cli_args$config_file <- "negb_gam.yaml"
+WAVE <- 10
+
 config <- read_yaml(file.path("config", cli_args$config_file))
 WAVE <- cli_args$arr_idx
 
@@ -126,9 +129,14 @@ d_job <- make_dummy_matrix(                      # Job
   "job",
   c("full_time", "self_employed", "student", "long_term_sick", "unemployed_looking", "unemployed_not_looking", "full_time_parent")
 )
-d_dow <- make_dummy_matrix(dt_part, "dow")       # Day of week
 d_urbn <- make_dummy_matrix(dt_part, "urbn_type", c("intermediate", "urban")) # Urban type
-X <- cbind(d_gender, d_hh, d_job, d_dow, d_urbn)
+
+if (WAVE == 10) {
+  X <- cbind(d_gender, d_hh, d_job, d_urbn)
+} else {
+  d_dow <- make_dummy_matrix(dt_part, "dow")       # Day of week
+  X <- cbind(d_gender, d_dow, d_hh, d_job, d_urbn)
+}
 
 # ===== Prepare repeat effects dummy =====
 ## Age variables
