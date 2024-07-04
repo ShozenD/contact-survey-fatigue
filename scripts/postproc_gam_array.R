@@ -21,31 +21,30 @@ REPEAT <- cli_args$arr_idx - 1
 
 cat(" Loading data and configurations...\n")
 config <- read_yaml(file.path("config", cli_args$config_file))
-fname <- paste("covimod_wave_21", "increp", REPEAT, sep = "_")
+fname <- paste("covimod_wave", config$data$wave, "increp", REPEAT, sep = "_")
 stan_data <- read_rds(file.path(config$out_dir, "stan_data", paste0(fname, ".rds")))
 
 cat(" Loading the fitted model...\n")
 fname <- paste(config$experiment_name, "increp", REPEAT, sep = "_")
 fit <- read_rds(file.path(config$out_dir, "stan_fits", paste0(fname, ".rds")))
 
-cat(" Summarizing posterior samples...\n")
+cat(" Computing model diagnositic statistics...\n")
 out_dir <- config$out_dir
 out_dir <- file.path(out_dir, "results", fname)
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
+fit_summary <- make_convergence_diagnostic_stats(fit, outdir = out_dir)
+
+cat(" Summarizing posterior samples...\n")
 quantile5 <- function(x) quantile(x, probs = c(.025, .25, .5, .75, .975))
+exp_quantile5 <- function(x) quantile(exp(x), probs = c(.025, .25, .5, .75, .975))
 
-# Extract contact intensity
-po <- fit$draws(variables = c("alpha", "log_m"), format = "draws_matrix")
-cint_matrix <- extract_cint_matrix(po)
-
-# Contact intensity matrix
-cint_matrix_sum <- summarise_cint_matrix(cint_matrix)
-saveRDS(cint_matrix_sum, file.path(out_dir, "cint_matrix_sum.rds"))
-
-# Marginal contact intensity
-cint_margin_sum <- summarise_cint_marginal(cint_matrix)
-saveRDS(cint_margin_sum, file.path(out_dir, "cint_margin_sum.rds"))
+# Contact intensity
+po_cint <- fit$draws(variables = c("log_m"), format = "draws_matrix")
+cint_sum <- setDT(posterior::summarize_draws(po_cint, exp_quantile5))
+colnames(cint_sum) <- c("variable", "CL", "Q25", "M", "Q75", "CU")
+cint_sum[, age := as.numeric(gsub("log_m\\[([0-9]+)\\]", "\\1", variable)) - 1]
+saveRDS(cint_sum, file.path(out_dir, "cint_sum.rds"))
 
 # Extract fixed effects
 po_beta <- fit$draws(variables = c("beta"), format = "draws_matrix")

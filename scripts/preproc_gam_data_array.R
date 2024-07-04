@@ -15,9 +15,6 @@ option_list <- list(
 )
 cli_args <- parse_args(OptionParser(option_list = option_list))
 
-cli_args$config_file <- "negb_gam.yaml"
-cli_args$arr_idx <- 21
-
 # ========== Load data ==========
 cat(" Loading data and configurations...\n")
 covimod_data <- read_rds("./data/COVIMOD/COVIMOD_data_2022-12-29.rds")

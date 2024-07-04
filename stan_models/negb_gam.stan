@@ -1,10 +1,12 @@
 functions {
-  real repeat_effect(int j, int r, vector gamma, vector zeta, vector eta){
-    real rho;
-    if (j != 0) {
-      rho = gamma[j] * (exp(zeta[j]) * r^eta[j]) / (1 + exp(zeta[j]) * r^eta[j]);
-    } else {
-      rho = 0;
+  matrix Hill(vector r, vector gamma, vector zeta, vector eta) {
+    int Q = rows(gamma);
+    int R = rows(r);
+    row_vector[R] r = to_row_vector(r);
+
+    matrix[Q, R] rho;
+    for (q in 1:Q) {
+      rho[q,:] = -gamma[q] * exp(zeta[q]) * r^eta[q] ./ (1 + exp(zeta[q]) * r^eta[q]);
     }
 
     return rho;
@@ -26,50 +28,50 @@ functions {
   }
 }
 
-data
-{
-  // ========== Sample size and dimensions ==========
-  int<lower=1> N;    // Number of participants
-  int<lower=1> A;     // Number of age inputs
-  int<lower=1> P;     // The number of participant covariates
-  int<lower=1> J;     // The number of jobs with repeat effects
-  int<lower=1> R;     // The maximum number of repeats
+data {
+  int<lower=1> N;              // Number of participants
+  int<lower=1> A;              // Number of age inputs
+  int<lower=1> P;              // The number of participant covariates
+  int<lower=1> Q;              // The number of jobs with repeat effects
 
-  // ========== Data ==========
-  array[N] int Y;        // Array of contact reports
-  matrix[N,P] X;         // Participant covariate design matrix
-  array[N] int aid;      // Age index
+  matrix[N, P] X;              // Fixed design matrix
+  matrix[N, Q] Z;              // Repeat effect design matrix
+  array[N] int<lower=1> aid;   // age index
+  array[N] int<lower=1> rid;   // repeat index
 
-  // ========== Repeat effect terms ==========
-  array[N] int rid;  // Index for the number of repeats
-  array[N] int jid;  // Job dummy variables (for repeat effects)
-  real<lower=0> hatGamma;         // Shape parameter for gamma prior (posterior median of the longitudinal model)
-  real hatZeta;          // Shape parameter for zeta prior (posterior median of the longitudinal model)
-  real<lower=0> hatEta;           // Shape parameter for eta prior   (posterior median of the longitudinal model)
+  real<lower=0> hatGamma;
+  real hatZeta;
+  real<lower=0> hatEta;
 
-  // ========== HSGP ==========
-  int<lower=1> M;  // Number of basis functions (participant age dimension)
-  real<lower=0> C; // Factor to determine the boundary value L (participant age dimension)
+  int<lower=1> M;
+  real<lower=0> C;
+  vector[A] x_hsgp;
 
-  vector[A] x_hsgp; // Design matrix for HSGP
+  array[N] int<lower=0> y; // Array of contact reports
 }
 
 transformed data {
-  // ========== HSGP ==========
+  int<lower=1> R = max(rid);
+  if (R == 1) {
+    vector[1] r;
+    r[1] = 0;
+  } else {
+    vector[R] r = linspaced_vector(R, 0, R-1);
+  }
+
   real L = C * max(x_hsgp);
-  matrix[A,M] phi = PHI(x_hsgp, L, M); // HSGP Basis functions
+  matrix[A,M] phi = PHI(x_hsgp, L, M);
 }
 
 parameters {
   real alpha;     // Baseline parameter
-  real<lower=0> sigma_beta; // Participant covariate hierarchical variance parameter
   vector[P] beta;  // Participant covariate parameters
   real<lower=0> reciprocal_phi; // Reciprocal of the dispersion parameter
 
   // ========== Repeat effect terms ==========
-  vector<lower=0>[J] gamma;
-  vector[J] zeta;
-  vector<lower=0>[J] eta;
+  vector<lower=0>[Q] gamma;
+  vector[Q] zeta;
+  vector<lower=0>[Q] eta;
 
   // ========== HSGP ==========
   real<lower=0> lenscale; // GP lengthscale
@@ -78,17 +80,12 @@ parameters {
 }
 
 transformed parameters {
-  vector[N] log_lambda;
-  vector[A] log_m; // Log contact intensity
+  vector[A] log_m = alpha + hsgp(zb, phi, sigma, lenscale, L); // Log contact intensity
+  matrix[Q, R] rho = Hill(r, gamma, zeta, eta);
+  vector[N] log_lambda = log_m[aid] + X*beta;
 
-  { // Local scope
-    log_m = alpha + hsgp(zb, phi, sigma, lenscale, L);
-    log_lambda = log_m[aid] + X*beta;
-
-    // Add reporting fatigue adjustment factor
-    for (i in 1:N) {
-      log_lambda[i] = log_lambda[i] - repeat_effect(jid[i], rid[i], gamma, zeta, eta);
-    }
+  for (i in 1:N) {
+    log_lambda[i] = log_lambda[i] + Z[i,:] * rho[:,rid[i]];
   }
 }
 
@@ -97,8 +94,7 @@ model {
 
   // ========== Priors ==========
   lp = lp + normal_lupdf(alpha | 0., 10);
-  lp = lp + cauchy_lupdf(sigma_beta | 0., 1);
-  lp = lp + normal_lupdf(beta | 0., sigma_beta);
+  lp = lp + normal_lupdf(beta | 0., 1);
   lp = lp + exponential_lupdf(reciprocal_phi | 1);
 
   // ========== Repeat effect terms ==========
@@ -112,16 +108,16 @@ model {
   lp = lp + normal_lupdf(zb | 0, 1);
 
   // ========== Likelihood ==========
-  target += lp + neg_binomial_2_log_lupmf(Y | log_lambda, 1.0/reciprocal_phi);
+  target += lp + neg_binomial_2_log_lupmf(y | log_lambda, 1.0/reciprocal_phi);
 }
 
 generated quantities {
-  array[N] int yhat;
+  array[N] int y_rep;
   vector[N] log_lik;
-  // Non-zero case
+
   for (i in 1:N) {
-    log_lik[i] = neg_binomial_2_log_lpmf(Y[i] | log_lambda[i], 1.0/reciprocal_phi);
-    yhat[i] = neg_binomial_2_log_rng(log_lambda[i], 1.0/reciprocal_phi);
+    y_rep[i] = neg_binomial_2_log_rng(log_lambda[i], 1.0/reciprocal_phi);
+    log_lik[i] = neg_binomial_2_log_lpmf(y[i] | log_lambda[i], 1.0/reciprocal_phi);
   }
 }
 
