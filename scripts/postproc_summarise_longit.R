@@ -41,8 +41,9 @@ if (!str_detect(config$model$name, "_noadj")) { # If the model adjust for the re
 }
 
 # Extract posterior samples of tau (time effect)
-po <- fit$draws(variables = c("alpha", "tau"), format = "matrix")
-po <- sweep(po[, -1], 1, po[, 1], "+")
+po <- fit$draws(variables = c("alpha", "tau", "beta[5]"), format = "matrix")
+tmp <- sweep(po[,"alpha"], 1, po[,"beta[5]"], "+")
+po <- sweep(po[, str_detect(colnames(po), "tau")], 1, tmp, "+")
 df_po_tau <- summarise_draws(po, ~quantile5(exp(.x)))
 saveRDS(df_po_tau, file.path(out_dir, "post_tau.rds"))
 

@@ -18,7 +18,7 @@ config <- read_yaml(file.path("config", cli_args$config_file))
 
 # ===== Load data =====
 cat(" Loading data...\n")
-data <- read_rds("data/silver/covimod-wave-3-12.rds")
+data <- read_rds("data/silver/covimod_wave_3_12.rds")
 
 # ===== Prepare data =====
 cat(" Preparing Stan data...\n")

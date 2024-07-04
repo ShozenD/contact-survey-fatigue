@@ -30,93 +30,21 @@ REPEAT <- cli_args$arr_idx - 1
 dt_part <- data.table(covimod_data$part)
 dt_hh <- data.table(covimod_data$hh)
 dt_nhh <- data.table(covimod_data$nhh)
-dt_pop <- data.table(covimod_data$pop)
 
 # ========== Data preprecoessing ==========
-# Count the number of previous participations for each participant
-setkeyv(dt_part, cols = c("new_id", "wave"))
-dt_part[, rep := seq_len(.N) - 1, by = .(new_id)]
-
-# Filter participants by their number of repeats
-dt_part <- dt_part[rep <= REPEAT]
-
-# Fiter data by wave
-dt_part <- dt_part[wave == config$data$wave]
-dt_hh <- dt_hh[wave == config$data$wave]
-dt_nhh <- dt_nhh[wave == config$data$wave]
-
-# Sort dt_part by new_id
-dt_part <- dt_part[order(new_id)]
-
-# Remove participants with missing values in the gender column
-dt_part <- dt_part[!is.na(gender)]
-
-# Remove participants with missing values for age and gender
-dt_part <- dt_part[!is.na(age_strata)]
-dt_part <- dt_part[!is.na(gender)]
-dt_part <- dt_part[age_strata != "85+"]
-
-# Impute missing ages for children
-dt_part <- fill_missing_child_ages(dt_part, seed = 123)
-
-# Preprocess age_strata and job variables
-dt_part <- preproc_age_job(dt_part)
-
-# Preprocess household size variable
-dt_part[, hh_size := ifelse(hh_p_incl_0 >= 5, "5+", hh_p_incl_0)]
-dt_part[, hh_p_incl_0 := NULL]
-
-# Calculate day of week
-dt_part[, dow := lubridate::wday(date, label = TRUE)]
-dt_part[, dow := ifelse(dow %in% c("Sat", "Sun"), "weekend", "weekday")]
-
-# Merge NUTS info
-dt_nuts <- as.data.table(nuts)
-dt_nuts <- dt_nuts[LEVL_CODE == 3 & CNTR_CODE == "DE", .(NUTS_NAME, URBN_TYPE)]
-dt_part <- merge(dt_part, dt_nuts, by = "NUTS_NAME", all.x = TRUE)
-dt_part[, urbn_type := case_when(URBN_TYPE == "1" ~ "urban",
-                                 URBN_TYPE == "2" ~ "intermediate",
-                                 URBN_TYPE == "3" ~ "rural")]
-dt_part[, URBN_TYPE := NULL]
-
-# ===== Prepare contact count vector Y =====
-# For nhh Count the number of rows (contacts) by participant and alter_age_strata
-dt_nhh_sum <- dt_nhh[, .(y_nhh = .N), by = new_id]
-
-# For hh sum the number of rows (contacts) by participant and alter_age_strata
-dt_hh_sum <- dt_hh[, .(y_hh = sum(hh_met_this_day)), by = new_id]
-
-# In dt_part, sum the values in columns Q75_u18_work to Q75_o64_else and save it as y_grp
-SDcols <- colnames(dt_part)[str_detect(colnames(dt_part), "Q")]
-dt_part[, y_grp := rowSums(.SD, na.rm = TRUE), .SDcols = SDcols]
-dt_grp <- dt_part[, .(new_id, y_grp)]
-
-# Merge the three data.tables
-dt_y <- merge(dt_grp, dt_hh_sum, by = "new_id", all.x = TRUE)
-dt_y <- merge(dt_y, dt_nhh_sum, by = "new_id", all.x = TRUE)
-
-# Replace missing values with 0
-dt_y[is.na(y_grp), y_grp := 0]
-dt_y[is.na(y_hh), y_hh := 0]
-dt_y[is.na(y_nhh), y_nhh := 0]
-
-# Sum the three columns to get the total number of contacts
-dt_y[, y := y_grp + y_hh + y_nhh]
-
-# Merge the y vector with the participant data
-dt_part <- merge(dt_part, dt_y, by = "new_id")
-
-# Drop extreme values
-dt_part <- dt_part[y < quantile(dt_part$y, 0.99)]
+cat(" Preprocessing data...\n")
+dt_cnt <- preproc_gam_data(21, dt_part, dt_hh, dt_nhh, nuts)
+dt_cnt <- dt_cnt[rep <= REPEAT]
 
 # ===== Prepare participant characteristics X =====
-make_dummy_matrix <- function(data, variable, include = NULL) {
+make_dummy_matrix <- function(data, variable, include = NULL, ...) {
   data <- setDT(data)
   data <- data[, ..variable]
   data <- fastDummies::dummy_cols(data,
                                   select_columns = variable,
                                   remove_selected_columns = TRUE,
-                                  omit_colname_prefix = TRUE)
+                                  omit_colname_prefix = TRUE,
+                                  ...)
   if (!is.null(include)) data <- data[, ..include]
   data <- as.matrix(data)
   data[is.na(data)] <- 0
@@ -124,41 +52,29 @@ make_dummy_matrix <- function(data, variable, include = NULL) {
   return(data)
 }
 
-# Make dummy variables
-d_gender <- make_dummy_matrix(dt_part, "gender") # Gender
-d_hh <- make_dummy_matrix(dt_part, "hh_size")    # Household size
-d_job <- make_dummy_matrix(                      # Job
-  dt_part,
-  "job",
-  c("full_time", "self_employed", "student", "long_term_sick", "unemployed_looking", "unemployed_not_looking", "full_time_parent")
-)
-d_dow <- make_dummy_matrix(dt_part, "dow")       # Day of week
-d_urbn <- make_dummy_matrix(dt_part, "urbn_type", c("intermediate", "urban")) # Urban type
-X <- cbind(d_gender, d_hh, d_job, d_dow, d_urbn)
+# ===== Make dummy variables =====
+dum_sex <- make_dummy_matrix(dt_cnt, "gender")[,"Female"]
+dum_hhsize <- make_dummy_matrix(dt_cnt, "hh_size", remove_most_frequent_dummy = TRUE)
+dum_job <- make_dummy_matrix(dt_cnt, "job", c("full_time", "self_employed", "student", "long_term_sick",
+                                              "unemployed_looking", "unemployed_not_looking", "full_time_parent"))
+dum_dow <- make_dummy_matrix(dt_cnt, "dow")[,"weekend"]
+dum_urbn <- make_dummy_matrix(dt_cnt, "urbn_type", c("intermediate", "urban"))
+X <- cbind(dum_sex, dum_hhsize, dum_job, dum_dow, dum_urbn)
 
 # ===== Prepare repeat effects dummy =====
-## Age variables
-include_age_strata <- unique(dt_part$age_strata)
+include_age_strata <- unique(dt_cnt$age_strata)
 include_age_strata <- include_age_strata[!(include_age_strata %in% c("25-34", "35-44"))]
-rd_age <- make_dummy_matrix(dt_part, "age_strata", include_age_strata)
-rd_gender <- make_dummy_matrix(dt_part, "gender", "Female")
-rd_hh <- make_dummy_matrix(dt_part, "hh_size", "1")
-rd_job <- make_dummy_matrix(dt_part, "job", c("full_time", "part_time", "self_employed", "student",
+rdum_age <- make_dummy_matrix(dt_cnt, "age_strata", include_age_strata)
+rdum_sex <- make_dummy_matrix(dt_cnt, "gender", "Female")
+rdum_hhsize <- make_dummy_matrix(dt_cnt, "hh_size", "1")
+rdum_job <- make_dummy_matrix(dt_cnt, "job", c("full_time", "part_time", "self_employed", "student",
                                               "long_term_sick", "unemployed_looking", "unemployed_not_looking"))
-rd_urbn <- make_dummy_matrix(dt_part, "urbn_type", c("rural", "intermediate"))
-Z <- cbind(rd_age, rd_gender, rd_hh, rd_job)
-
-jid <- rep(0, nrow(Z))
-for (i in 1:nrow(Z)) {
-  if (sum(Z[i,]) > 0) {
-    jid[i] <- last(which(Z[i,] > 0, arr.ind = TRUE))
-  }
-}
-rid <- dt_part$rep
+rdum_urbn <- make_dummy_matrix(dt_cnt, "urbn_type", c("rural", "intermediate"))
+Z <- cbind(rdum_age, rdum_sex, rdum_hhsize, rdum_job)
 
 # ===== Prepare indexes =====
-# Age
 aid <- dt_part$imp_age + 1
+rid <- dt_cnt$rep
 
 # ===== HSGP =====
 x_hsgp <- seq(0, 84)
@@ -166,33 +82,25 @@ x_hsgp <- (x_hsgp - mean(x_hsgp)) / sd(x_hsgp)
 
 # ===== Gather and export the data =====
 stan_data <- list(
-  # Sample size and dimensions
-  N = nrow(dt_part),
-  A = length(x_hsgp),
+  N = nrow(dt_cnt),
+  A = 85,
   P = ncol(X),
-  J = ncol(Z),
-  R = max(dt_part$rep) + 1,
+  Q = ncol(Z),
 
-  # Outcome
-  Y = dt_part$y,
-
-  # Covariates
   X = X,
-
-  # Indexes
+  Z = Z,
   aid = aid,
-  jid = jid,
   rid = rid,
 
-  # Repeat effect prior
   hatGamma = config$model$hatGamma,
   hatZeta = config$model$hatZeta,
   hatEta = config$model$hatEta,
 
-  # HSGP
   M = config$model$M,
   C = config$model$C,
-  x_hsgp = x_hsgp
+  x_hsgp = x_hsgp,
+
+  y = dt_cnt$y
 )
 
 file_name <- paste("covimod_wave_21", "increp", as.character(REPEAT), sep = "_")

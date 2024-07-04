@@ -10,12 +10,6 @@ functions {
     return rho;
   }
 
-  // ===== HSGP functions =====
-  // Square root of the spectral density
-  vector diagSPD_Matern52(real alpha, real rho, real L, int M) {
-    return 2*alpha * sqrt(4.0/3) * (sqrt(5)/rho)^2.5 * inv((sqrt(5)/rho)^2 + ((pi()/2/L) * linspaced_vector(M, 1, M))^2)^1.5;
-  }
-
   vector diagSPD_SE(real alpha, real rho, real L, int M) {
     return alpha * sqrt(sqrt(2*pi()) * rho) * exp(-0.25*(rho*pi()/2/L)^2 * linspaced_vector(M, 1, M)^2);
   }
