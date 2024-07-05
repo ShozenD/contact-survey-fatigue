@@ -51,7 +51,7 @@ make_dummy_matrix <- function(data, variable, include = NULL, ...) {
 
 # ===== Make dummy variables =====
 dum_sex <- make_dummy_matrix(dt_cnt, "gender")[,"Female"]
-dum_hhsize <- make_dummy_matrix(dt_cnt, "hh_size", remove_most_frequent_dummy = TRUE)
+dum_hhsize <- make_dummy_matrix(dt_cnt, "hh_size", remove_first_dummy = TRUE)
 dum_job <- make_dummy_matrix(dt_cnt, "job", c("full_time", "self_employed", "student", "long_term_sick",
                                               "unemployed_looking", "unemployed_not_looking", "full_time_parent"))
 dum_dow <- make_dummy_matrix(dt_cnt, "dow")[,"weekend"]
