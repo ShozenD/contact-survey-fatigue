@@ -30,7 +30,7 @@ dt_nhh <- data.table(covimod_data$nhh)
 
 # ========== Data preprecoessing ==========
 cat(" Preprocessing data...\n")
-dt_cnt <- preproc_gam_data(21, dt_part, dt_hh, dt_nhh, nuts)
+dt_cnt <- preproc_gam_data(config$data$wave, dt_part, dt_hh, dt_nhh, nuts)
 dt_cnt <- dt_cnt[rep <= REPEAT]
 
 # ===== Prepare participant characteristics X =====
@@ -70,8 +70,8 @@ rdum_urbn <- make_dummy_matrix(dt_cnt, "urbn_type", c("rural", "intermediate"))
 Z <- cbind(rdum_age, rdum_sex, rdum_hhsize, rdum_job)
 
 # ===== Prepare indexes =====
-aid <- dt_part$imp_age + 1
-rid <- dt_cnt$rep
+aid <- dt_cnt$imp_age + 1
+rid <- dt_cnt$rep + 1
 
 # ===== HSGP =====
 x_hsgp <- seq(0, 84)
@@ -100,7 +100,7 @@ stan_data <- list(
   y = dt_cnt$y
 )
 
-file_name <- paste("covimod_wave_21", "increp", as.character(REPEAT), sep = "_")
+file_name <- paste("covimod_wave", config$data$wave, "increp", REPEAT, sep = "_")
 file_name <- paste0(file_name, ".rds")
 saveRDS(stan_data, file.path("data/silver", file_name))
 
