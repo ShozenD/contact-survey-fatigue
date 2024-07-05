@@ -12,7 +12,6 @@ functions {
     return rho;
   }
 
-  // ===== HSGP functions =====
   vector diagSPD_SE(real alpha, real rho, real L, int M) {
     return alpha * sqrt(sqrt(2*pi()) * rho) * exp(-0.25*(rho*pi()/2/L)^2 * linspaced_vector(M, 1, M)^2);
   }
@@ -34,7 +33,7 @@ data {
   int<lower=1> A;              // Number of age inputs
   int<lower=1> P;              // The number of participant covariates
   int<lower=1> Q;              // The number of jobs with repeat effects
-  
+
   matrix[N, P] X;              // Fixed design matrix
   matrix[N, Q] Z;              // Repeat effect design matrix
   array[N] int<lower=1> aid;   // age index
