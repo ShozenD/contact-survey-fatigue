@@ -8,9 +8,9 @@ model:
   name: "negb_gam"
   M: 30
   C: 1.5
-  hatGamma: 1.37
-  hatZeta: 0.81
-  hatEta: 1.23
+  hatGamma: 0.943
+  hatZeta: -0.222
+  hatEta: 0.873
 
 mcmc:
   seed: 0

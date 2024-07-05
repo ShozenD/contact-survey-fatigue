@@ -4,7 +4,6 @@ library(optparse)
 library(readr)
 library(stringr)
 library(data.table)
-library(reshape2)
 library(cmdstanr)
 library(posterior)
 library(devtools)
@@ -36,9 +35,6 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 fit_summary <- make_convergence_diagnostic_stats(fit, outdir = out_dir)
 
 cat(" Summarizing posterior samples...\n")
-quantile5 <- function(x) quantile(x, probs = c(.025, .25, .5, .75, .975))
-exp_quantile5 <- function(x) quantile(exp(x), probs = c(.025, .25, .5, .75, .975))
-
 # Contact intensity
 po_cint <- fit$draws(variables = c("log_m"), format = "draws_matrix")
 cint_sum <- setDT(posterior::summarize_draws(po_cint, exp_quantile5))
