@@ -59,7 +59,7 @@ if (WAVE == 10) {
   X <- cbind(dum_sex, dum_hhsize, dum_job, dum_urbn)
 } else {
   dum_dow <- make_dummy_matrix(dt_cnt, "dow")[,"weekend"]       # Day of week
-  X <- cbind(dum_sex, dum_dow, dum_hhsize, dum_job, dum_urbn)
+  X <- cbind(dum_sex, dum_hhsize, dum_dow, dum_job, dum_urbn)
 }
 
 # ===== Prepare repeat effects dummy =====
