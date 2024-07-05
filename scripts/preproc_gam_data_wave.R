@@ -20,9 +20,6 @@ cat(" Loading data and configurations...\n")
 covimod_data <- read_rds("./data/COVIMOD/COVIMOD_data_2022-12-29.rds")
 nuts <- read_rds(file.path("data", "nuts_info.rds"))
 
-cli_args$config_file <- "negb_gam.yaml"
-WAVE <- 10
-
 config <- read_yaml(file.path("config", cli_args$config_file))
 WAVE <- cli_args$arr_idx
 
@@ -198,7 +195,7 @@ stan_data <- list(
   x_hsgp = x_hsgp
 )
 
-file_name <- paste("covimod_wave", as.character(WAVE), "gam", sep = "_")
+file_name <- paste(config$experiment_name, WAVE, sep = "_")
 file_name <- paste0(file_name, ".rds")
 saveRDS(stan_data, file.path("data/silver", file_name))
 
