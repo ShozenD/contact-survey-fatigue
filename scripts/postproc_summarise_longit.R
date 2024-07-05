@@ -27,31 +27,48 @@ out_dir <- config$out_dir
 out_dir <- file.path(out_dir, "results", config$experiment_name)
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
-quantile5 <- function(x) quantile(x, probs = c(.025, .25, .5, .75, .975))
-
 # Extract posterior samples of rho (the repeat effect)
 if (!str_detect(config$model$name, "_noadj")) { # If the model adjust for the repeat effect
-  df_po_rho <- summarise_draws(fit$draws(variables = "rho"), ~quantile5(.x))
-  df_po_rho$r <- seq(0, nrow(df_po_rho) - 1)
-  saveRDS(df_po_rho, file.path(out_dir, "post_rho.rds"))
+  df_rho <- fit$summary("rho",
+                        posterior::default_summary_measures()[1:4],
+                        quantiles = ~ quantile2(., probs = c(.025, .975)))
+  df_rho$r <- seq(0, nrow(df_rho) - 1)
+  saveRDS(df_rho, file.path(out_dir, "po_sum_rho.rds"))
 
-  # Extract posterior samples of gamma, kappa, and eta (the repeat effects)
-  if (str_detect(config$model$name, "logistic")){
-    df_po_rep_parms <- summarise_draws(fit$draws(variables = c("gamma", "zeta", "eta")), ~quantile5(.x))
-    saveRDS(df_po_rep_parms, file.path(out_dir, "post_hill_parms.rds"))
+  # Extract posterior samples of gamma, zeta, and eta (the repeat effects)
+  if (str_detect(config$model$name, "hill")){
+    df_hill <- fit$summary(c("gamma", "zeta", "eta"),
+                           posterior::default_summary_measures()[1:4],
+                           quantiles = ~ quantile2(., probs = c(.025, .975)))
+    saveRDS(df_hill, file.path(out_dir, "po_sum_hill.rds"))
   }
 }
 
 # Extract posterior samples of tau (time effect)
-po <- fit$draws(variables = c("alpha", "tau", "beta[5]"), format = "matrix")
-tmp <- sweep(po[,"alpha"], 1, po[,"beta[5]"], "+")
-po <- sweep(po[, str_detect(colnames(po), "tau")], 1, tmp, "+")
-df_po_tau <- summarise_draws(po, ~quantile5(exp(.x)))
-saveRDS(df_po_tau, file.path(out_dir, "post_tau.rds"))
+draws <- fit$draws(c("alpha", "tau",
+                     "beta[5]",   # 45-54  
+                     "beta[8]",   # 75-79
+                     "beta[12]"), # student [6-9]
+                   format = "matrix")
+
+marginal_cint <- function(draws, variable, label) {
+  x <- sweep(draws[,"alpha"], 1, draws[,variable], "+")
+  x <- sweep(draws[, str_detect(colnames(draws), "tau")], 1, x, "+")
+  df <- summarise_draws(x, ~quantile2(exp(.x), probs = c(.025, .5, .975)))
+  df$label <- label
+
+  return(df)
+}
+
+df_mcint <- marginal_cint(draws, "beta[5]", "Male, 45-54, household size 3")
+df_mcint <- rbind(df_mcint, marginal_cint(draws, "beta[8]", "Male, 75-79, household size 3"))
+df_mcint <- rbind(df_mcint, marginal_cint(draws, "beta[12]", "Male, student [6-9], household size 3"))
+saveRDS(df_mcint, file.path(out_dir, "marginal_contact_intensity.rds"))
 
 # Extract fixed effects
-po_beta <- fit$draws(variables = c("beta"), format = "draws_matrix")
-po_beta_sum <- summarise_draws(po_beta, ~quantile5(.x))
-saveRDS(po_beta_sum, file.path(out_dir, "po_beta.rds"))
+df_beta <- fit$summary("beta", 
+                       posterior::default_summary_measures()[1:4],
+                       quantiles = ~ quantile2(., probs = c(.025, .975)))
+saveRDS(df_beta, file.path(out_dir, "po_sum_beta.rds"))
 
 cat(" DONE!\n")
