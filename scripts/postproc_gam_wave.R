@@ -1,7 +1,14 @@
+# Import libraries
+library(optparse)
+library(yaml)
 library(readr)
+library(dplyr)
+library(stringr)
 library(data.table)
 library(cmdstanr)
 library(posterior)
+library(devtools)
+load_all()
 
 # ===== Load configurations =====
 # Parse command line arguments
@@ -11,14 +18,20 @@ option_list <- list(
 )
 cli_args <- parse_args(OptionParser(option_list = option_list))
 
+cat(" Loading configurations...\n")
+config <- read_yaml(file.path("config", cli_args$config_file))
+WAVE <- cli_args$arr_idx
+
 # Load population data
 pop_data <- setDT(read_csv("data/germany-population-2011.csv"))
 
 # Load the fitted model
+cat(" Loading the fitted model...\n")
 fit_dir <- file.path(config$out_dir, "stan_fits")
 fname <- paste(config$experiment_name, WAVE, sep = "_")
 fit <- read_rds(file.path(fit_dir, paste0(fname, ".rds")))
 
+cat(" Calculating quantities of interest...\n")
 # Extract posterior draws
 draws_log_m <- fit$draws("log_m", format = "matrix")
 draws_beta <- fit$draws("beta", format = "matrix")
@@ -55,4 +68,4 @@ out_dir <- file.path(config$out_dir, "results", paste(config$experiment_name, WA
 if (!dir.exists(out_dir)) dir.create(out_dir)
 write_rds(dt_cnt_int, file.path(out_dir, "weighted_intensity.rds"))
 
-
+cat(" DONE!\n")
