@@ -77,7 +77,7 @@ preproc_gam_data <- function(w, part, hh, nhh, nuts) {
   part <- merge(part, cnt_sum, by = "new_id")
 
   # Remove extreme outliers
-  final <- part[y < quantile(part$y, 0.95)]
+  part[, y := ifelse(y > 30, 30, y)]
 
-  return(final)
+  return(part)
 }

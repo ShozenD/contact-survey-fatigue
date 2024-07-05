@@ -5,6 +5,8 @@ library(lubridate)
 library(data.table)
 library(tidyverse)
 library(fastDummies)
+library(devtools)
+load_all()
 
 # ===== Import data =====
 repo_path <- getwd()
@@ -34,135 +36,85 @@ dt_nhh <- dt_nhh[, .(y_nhh = .N), by = .(wave, new_id)]
 SDcols_Q75 <- c("Q75_u18_work", "Q75_u18_school", "Q75_u18_else",
                 "Q75_1864_work", "Q75_1864_school", "Q75_1864_else",
                 "Q75_o64_work", "Q75_o64_school", "Q75_o64_else")
-
 dt_part[, y_grp := rowSums(.SD, na.rm = T), .SDcols = SDcols_Q75]
-dt_part[y_grp > 60, y_grp := 60] # Truncate at 60 to mitigate outliers
-
-dt_part <- dt_part[, .(wave, new_id, date, age, age_strata, gender, hh_p_incl_0, job, school, rep, y_grp, NUTS_NAME)]
 
 # Merge the data together
 dt <- merge(dt_part, dt_hh, by = c("wave", "new_id"), all.x = TRUE)
 dt <- merge(dt, dt_nhh, by = c("wave", "new_id"), all.x = TRUE)
 
 # Join NUTS3 info
-df_nuts <- nuts %>%
-  as.data.table() %>%
-  filter(LEVL_CODE == 3, CNTR_CODE == "DE") %>%
-  select(NUTS_NAME, URBN_TYPE)
-dt <- merge(dt, df_nuts, by = "NUTS_NAME", all.x = TRUE)
+nuts <- as.data.table(nuts)
+nuts <- nuts[LEVL_CODE == 3 & CNTR_CODE == "DE", .(NUTS_NAME, URBN_TYPE)]
+dt <- merge(dt, nuts, by = "NUTS_NAME", all.x = TRUE)
 
 # Fill NAs with 0
 dt[is.na(y_hh), y_hh := 0]
 dt[is.na(y_nhh), y_nhh := 0]
 
-# Calculate the total number of contacts
-dt[, y_tot := y_hh + y_nhh + y_grp]
-
-# Truncate household size at 4 (more than 90% of all households)
-dt[, hh_size := ifelse(hh_p_incl_0 > 5, 5, hh_p_incl_0)]
-
-dt <- dt %>%
-  filter(!is.na(age_strata), !is.na(gender)) %>% # Remove gender and job NAs
-  filter(age_strata != "85+") # Remove people over 85 (small sample size)
-
-# ===== Create design matrix =====
-# Prevent NAs for work status
-dt <- dt %>%
-  mutate(
-    job = case_when(
-      age_strata == "0-4" & school == "None of the above" ~ "Raised-at-home-toddler",
-      age_strata == "0-4" & job == "None of the above"  ~ "Raised-at-home-toddler",
-      is.na(job) & school == "Nursery or pre-school" ~ school,
-      is.na(job) & school == "School" ~ "Student/Pupil",
-      TRUE ~ job)
-  ) %>%
-  drop_na(job) # Only drops 14 participants
-
-## Prepare participant characteristics X
-### Occupations
-dt <- preproc_age_job(dt)
-jobs_of_interest <- c("Full-time parent, homemaker",
-                      "Long-term sick or disabled",
-                      "Unemployed and not looking for a job",
-                      "Unemployed but looking for a job",
-                      "Retired",
-                      "Self employed",
-                      "Student/Pupil",
-                      "Employed full-time (34 hours or more)")
-dt[, job_2 := ifelse(job %in% jobs_of_interest, as.character(job), "Other")]
-dt_dummy_job <- fastDummies::dummy_cols(dt[, .(new_id, job_2)],
-                                        select_columns = "job_2",
-                                        remove_selected_columns = TRUE,
-                                        omit_colname_prefix = TRUE)
-dt_dummy_job[, Other := NULL]  # Remove the Other column
-dt_dummy_job[, new_id := NULL] # Remove ID column
-
-## Prepare age related dummies
-dt[, age_strata_2 := ifelse(age_strata != "85+", as.character(age_strata), "Other")]
-dt_dummy_age <- fastDummies::dummy_cols(dt[, .(new_id, age_strata_2)],
-                                        select_columns = "age_strata_2",
-                                        remove_selected_columns = TRUE,
-                                        remove_most_frequent_dummy = TRUE,
-                                        omit_colname_prefix = TRUE)
-dt_dummy_age[, new_id := NULL] # Remove ID column
-
-# Household size
-dt_dummy_hh <- fastDummies::dummy_cols(dt[, .(hh_size)],
-                                       select_columns = "hh_size",
-                                       remove_selected_columns = TRUE,
-                                       remove_most_frequent_dummy = TRUE,
-                                       omit_colname_prefix = TRUE)
-
-# Gender
-dt_dummy_gender <- fastDummies::dummy_cols(dt[, .(gender)],
-                                           select_columns = "gender",
-                                           remove_most_frequent_dummy = TRUE,
-                                           omit_colname_prefix = TRUE)
-dt_dummy_gender[, gender := NULL]
-
 # Day of week
 dt[, dow := lubridate::wday(date, label = TRUE)]
 dt[, dow := ifelse(dow %in% c("Sat", "Sun"), "Weekend", "Weekday")]
-dt_dummy_dow <- fastDummies::dummy_cols(dt[, .(dow)],
-                                        select_columns = "dow",
-                                        remove_selected_columns = TRUE,
-                                        omit_colname_prefix = TRUE)
 
 # Urban type
 dt  <- dt[, urbn_type := case_when(URBN_TYPE == "1" ~ "Urban",
                                    URBN_TYPE == "2" ~ "Intermediate",
                                    URBN_TYPE == "3" ~ "Rural")]
-dt_dummy_urban <- fastDummies::dummy_cols(dt[, .(urbn_type)],
-                                          select_columns = "urbn_type",
-                                          remove_selected_columns = TRUE,
-                                          omit_colname_prefix = TRUE)
-dt_dummy_urban[, Rural := NULL]  # Remove the Rural column
 
-length(unique(dt$new_id))
-nrow(dt)
+# Calculate the total number of contacts
+dt[, y := y_hh + y_nhh + y_grp]
 
-# Combine the dummies
-dt_dummy <- cbind(dt_dummy_age, dt_dummy_gender, dt_dummy_hh, dt_dummy_job, dt_dummy_dow, dt_dummy_urban)
+# Truncate household size at 4 (more than 90% of all households)
+dt[, hh_size := ifelse(hh_p_incl_0 > 5, 5, hh_p_incl_0)]
+dt[, hh_p_incl_0 := NULL]
 
-# Make design matrix for non-dummies
-dt_non_dummies <- select(dt, new_id, wave, rep)
-new_id_unique <- unique(dt_non_dummies$new_id)
-part_idx <- seq(1, length(new_id_unique))
-map_id_to_idx <- as.list(part_idx)
-names(map_id_to_idx) <- new_id_unique
+dt <- dt[!is.na(age_strata) & !is.na(gender) & age_strata != "85+"] # Remove missing and 85+ age group
+dt <- preproc_age_job(dt)
+dt[, y := ifelse(y > 30, 30, y)] # Truncate the number of contacts at 30
 
-dt_non_dummies$part_idx <- unlist(map_id_to_idx[dt_non_dummies$new_id])
-dt_non_dummies <- ungroup(dt_non_dummies)
+# ===== Create design matrix =====
+make_dummy_matrix <- function(data, variable, include = NULL, ...) {
+  data <- setDT(data)
+  data <- data[, ..variable]
+  data <- fastDummies::dummy_cols(data,
+                                  select_columns = variable,
+                                  remove_selected_columns = TRUE,
+                                  omit_colname_prefix = TRUE,
+                                  ...)
+  if (!is.null(include)) data <- data[, ..include]
+  data <- as.matrix(data)
+  data[is.na(data)] <- 0
 
-part_idx <- dt_non_dummies$part_idx
+  return(data)
+}
 
-# Combine the non dummies and dummy variables into one matrix
-X <- cbind(select(dt_non_dummies, wave, rep), dt_dummy)
-X <- as.matrix(X)
+## Prepare participant characteristics X
 
-# Outcome variable
-y <- dt$y_tot
+# Fixed effects
+dum_age <- make_dummy_matrix(dt, "age_strata", remove_most_frequent_dummy = TRUE)
+dum_sex <- make_dummy_matrix(dt, "gender")[,"Female"]
+dum_hhsize <- make_dummy_matrix(dt, "hh_size", remove_most_frequent_dummy = TRUE)
+dum_dow <- make_dummy_matrix(dt, "dow")[,"Weekend"]
+jobs_of_interest <- c("full_time", "long_term_sick",
+                      "unemployed_looking", "unemployed_not_looking",
+                      "retired", "self_employed",
+                      "student", "full_time_parent")
+dum_job <- make_dummy_matrix(dt, "job", include = jobs_of_interest)
+dum_urbn <- make_dummy_matrix(dt, "urbn_type", include = c("Urban", "Intermediate"))
 
-data <- list(part_idx = part_idx, y = y, X = X)
-saveRDS(data, file = "data/silver/covimod_wave_3_12.rds")
-```
+# ===== Combine the dummies =====
+X <- cbind(dum_age, dum_sex, dum_hhsize, dum_dow, dum_job, dum_urbn)  # Fixed effects
+
+# ===== Make Stan data =====
+wid <- dt$wave - min(dt$wave) + 1
+rid <- dt$rep + 1
+
+stan_data <- list(
+  N = nrow(dt),
+  P = ncol(X),
+  X = X,
+  wid = wid,
+  rid = rid,
+  y = dt$y
+)
+
+saveRDS(stan_data, file = "data/silver/covimod_wave_3_12.rds")
