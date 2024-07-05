@@ -26,11 +26,9 @@ data {
   int<lower=1> N;    // Number of participants
   int<lower=1> A;     // Number of age inputs
   int<lower=1> P;     // The number of participant covariates
-  int<lower=1> J;     // The number of jobs with repeat effects
-  int<lower=1> R;     // The maximum number of repeats
 
   // ========== Data ==========
-  array[N] int Y;        // Array of contact reports
+  array[N] int y;        // Array of contact reports
   matrix[N,P] X;         // Participant covariate design matrix
   array[N] int aid;      // Age index
 
@@ -84,16 +82,16 @@ model {
   lp = lp + normal_lupdf(zb | 0, 1);
 
   // ========== Likelihood ==========
-  target += lp + neg_binomial_2_log_lupmf(Y | log_lambda, 1.0/reciprocal_phi);
+  target += lp + neg_binomial_2_log_lupmf(y | log_lambda, 1.0/reciprocal_phi);
 }
 
 generated quantities {
-  array[N] int yhat;
+  array[N] int y_rep;
   vector[N] log_lik;
 
   for (i in 1:N) {
-    log_lik[i] = neg_binomial_2_log_lpmf(Y[i] | log_lambda[i], 1.0/reciprocal_phi);
-    yhat[i] = neg_binomial_2_log_rng(log_lambda[i], 1.0/reciprocal_phi);
+    y_rep[i] = neg_binomial_2_log_rng(log_lambda[i], 1.0/reciprocal_phi);
+    log_lik[i] = neg_binomial_2_log_lpmf(y[i] | log_lambda[i], 1.0/reciprocal_phi);
   }
 }
 

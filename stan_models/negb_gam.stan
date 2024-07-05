@@ -2,11 +2,11 @@ functions {
   matrix Hill(vector r, vector gamma, vector zeta, vector eta) {
     int Q = rows(gamma);
     int R = rows(r);
-    row_vector[R] r = to_row_vector(r);
+    row_vector[R] r2 = to_row_vector(r);
 
     matrix[Q, R] rho;
     for (q in 1:Q) {
-      rho[q,:] = -gamma[q] * exp(zeta[q]) * r^eta[q] ./ (1 + exp(zeta[q]) * r^eta[q]);
+      rho[q,:] = -gamma[q] * exp(zeta[q]) * r2^eta[q] ./ (1 + exp(zeta[q]) * r2^eta[q]);
     }
 
     return rho;
@@ -52,12 +52,7 @@ data {
 
 transformed data {
   int<lower=1> R = max(rid);
-  if (R == 1) {
-    vector[1] r;
-    r[1] = 0;
-  } else {
-    vector[R] r = linspaced_vector(R, 0, R-1);
-  }
+  vector[R] r = linspaced_vector(R, 0, R-1);
 
   real L = C * max(x_hsgp);
   matrix[A,M] phi = PHI(x_hsgp, L, M);
