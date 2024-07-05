@@ -1,9 +1,9 @@
-out_dir: "/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
+out_dir: "~/Imperial/contact-survey-fatigue-outputs"
 experiment_name: "negb_longit_logistic"
 
 model:
   name: "negb_longit_logistic"
-  
+
 mcmc:
   seed: 0
   iter_warmup: 500
