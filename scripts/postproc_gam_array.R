@@ -35,16 +35,13 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 fit_summary <- make_convergence_diagnostic_stats(fit, outdir = out_dir)
 
 cat(" Summarizing posterior samples...\n")
-# Contact intensity
-po_cint <- fit$draws(variables = c("log_m"), format = "draws_matrix")
-cint_sum <- setDT(posterior::summarize_draws(po_cint, exp_quantile5))
-colnames(cint_sum) <- c("variable", "CL", "Q25", "M", "Q75", "CU")
-cint_sum[, age := as.numeric(gsub("log_m\\[([0-9]+)\\]", "\\1", variable)) - 1]
-saveRDS(cint_sum, file.path(out_dir, "cint_sum.rds"))
+# Marginal contact intensity
+dt_mcint <- setDT(fit$summary("log_m", quantiles = ~ quantile2(exp(.), probs = c(0.025, 0.5, 0.975))))
+dt_mcint[, age := as.numeric(gsub("log_m\\[([0-9]+)\\]", "\\1", variable)) - 1]
+saveRDS(dt_mcint, file.path(out_dir, "marginal_contact_intensity.rds"))
 
 # Extract fixed effects
-po_beta <- fit$draws(variables = c("beta"), format = "draws_matrix")
-po_beta_sum <- summarise_draws(po_beta, ~quantile5(.x))
-saveRDS(po_beta_sum, file.path(out_dir, "po_beta_sum.rds"))
+df_beta <- fit$summary("beta", quantiles = ~ quantile2(., probs = c(0.025, 0.5, 0.975)))
+saveRDS(df_beta, file.path(out_dir, "po_sum_beta.rds"))
 
 cat(" Done!\n")

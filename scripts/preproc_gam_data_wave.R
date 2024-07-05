@@ -104,7 +104,7 @@ stan_data <- list(
   y = dt_cnt$y
 )
 
-file_name <- paste("covimod_wave", WAVE, "gam", sep = "_")
+file_name <- paste(config$experiment_name, WAVE, sep = "_")
 file_name <- paste0(file_name, ".rds")
 saveRDS(stan_data, file.path("data/silver", file_name))
 
