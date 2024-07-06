@@ -43,7 +43,7 @@ for (w in 1:33) {
   # Save stan_data for convenient access from different scripts
   out_dir <- file.path(config$out_dir, "stan_data")
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
-  fname <- paste("covimod_wave_", WAVE, "gam", sep = "_")
+  fname <- paste(config$experiment_name, w, sep = "_")
   saveRDS(stan_data, file = file.path(out_dir, paste0(fname, ".rds")))
 
   # ===== Compile Stan model =====
