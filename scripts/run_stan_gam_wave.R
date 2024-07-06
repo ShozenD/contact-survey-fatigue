@@ -20,7 +20,7 @@ WAVE <- cli_args$arr_idx
 
 # ===== Load data =====
 cat(" Loading data...\n")
-fname <- paste("covimod_wave", WAVE, "gam", sep = "_")
+fname <- paste(config$experiment_name, WAVE, sep = "_")
 fname <- paste0(fname, ".rds")
 stan_data <- read_rds(file.path("data/silver", fname))
 
@@ -28,7 +28,7 @@ stan_data <- read_rds(file.path("data/silver", fname))
 out_dir <- config$out_dir
 out_dir <- file.path(out_dir, "stan_data")
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
-fname <- paste("covimod_wave_", WAVE, "gam", sep = "_")
+fname <- paste(config$experiment_name, WAVE, sep = "_")
 saveRDS(stan_data, file = file.path(out_dir, paste0(fname, ".rds")))
 
 # ===== Compile Stan model =====
@@ -52,7 +52,7 @@ cat(" Saving the fitted model...\n")
 # Setup output directory
 out_dir <- file.path(config$out_dir, "stan_fits")
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
-fname <- paste("covimod_wave_", WAVE, "gam", sep = "_")
+fname <- paste(config$experiment_name, WAVE, sep = "_")
 stan_fit$save_object(file.path(out_dir, paste0(fname, ".rds")))
 
 cat(" DONE!\n")
