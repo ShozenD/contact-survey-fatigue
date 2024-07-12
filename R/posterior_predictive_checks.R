@@ -8,7 +8,7 @@
 #' @param stan_data A list or data frame containing the data used in the
 #'    model fitting process. The structure should align with what is expected
 #'    by the specific model type.
-#' @param config A configuration list.
+#' @param type The type of model
 #' @param outdir An optional directory path as a character string where the
 #'    output will be saved. If `NA` (default), the function emits a warning and
 #'    does not save the output.
@@ -24,7 +24,7 @@
 #' @importFrom stringr str_detect
 #' @import data.table
 #' @export
-posterior_predictive_checks <- function(fit, stan_data, config, outdir = NA) {
+posterior_predictive_checks <- function(fit, stan_data, type, outdir = NA) {
 
   if (stringr::str_detect(config$model$name, "_longit_")) { # Longitudinal model
 
@@ -49,8 +49,34 @@ posterior_predictive_checks <- function(fit, stan_data, config, outdir = NA) {
   return(dt_ppc)
 }
 
+posterior_predictive_checks.hurdle <- function(fit, stan_data) {
+  po_draws <- fit$draws("y_rep", format = "matrix")
+  po_summary <- t(apply(po_draws, 2, function(x) quantile(x, probs = c(0.025, 0.5, 0.975))))
+  colnames(po_summary) <- c("CL", "M", "CU")
+  dt_ppc <- as.data.table(po_summary)
+
+  dt_ppc$y <- stan_data$y
+  dt_ppc[, inside_CI := y >= CL & y <= CU]
+  cat(" The proportion of points within the 95% posterior predictive interval is:", mean(dt_ppc$inside_CI)*100, "%\n")
+
+  return(dt_ppc)
+}
+
+posterior_predictive_checks.zi <- function(fit, stan_data) {
+  po_draws <- fit$draws("y_rep", format = "matrix")
+  po_summary <- t(apply(po_draws, 2, function(x) quantile(x, probs = c(0.025, 0.5, 0.975))))
+  colnames(po_summary) <- c("CL", "M", "CU")
+  dt_ppc <- as.data.table(po_summary)
+
+  dt_ppc$y <- stan_data$y
+  dt_ppc[, inside_CI := y >= CL & y <= CU]
+  cat(" The proportion of points within the 95% posterior predictive interval is:", mean(dt_ppc$inside_CI)*100, "%\n")
+
+  return(dt_ppc)
+}
+
 posterior_predictive_checks.pois <- function(fit, stan_data) {
-  po_draws <- fit$draws("yhat", format = "matrix")
+  po_draws <- fit$draws("y_rep", format = "matrix")
   po_summary <- t(apply(po_draws, 2, function(x) quantile(x, probs = c(0.025, 0.5, 0.975))))
   colnames(po_summary) <- c("CL", "M", "CU")
   dt_ppc <- as.data.table(po_summary)
@@ -63,7 +89,7 @@ posterior_predictive_checks.pois <- function(fit, stan_data) {
 }
 
 posterior_predictive_checks.zi <- function(fit, stan_data) {
-  po_draws <- fit$draws("yhat", format = "matrix")
+  po_draws <- fit$draws("y_rep", format = "matrix")
   po_summary <- t(apply(po_draws, 2, function(x) quantile(x, probs = c(0.025, 0.5, 0.975))))
   colnames(po_summary) <- c("CL", "M", "CU")
   dt_ppc <- as.data.table(po_summary)
@@ -76,8 +102,15 @@ posterior_predictive_checks.zi <- function(fit, stan_data) {
 }
 
 posterior_predictive_checks.longit <- function(fit, stan_data) {
+<<<<<<< HEAD
   dt_ppc <- fit$summary("y_rep", quantiles = ~ quantile2(., probs = c(0.025, 0.975)))
   dt_ppc <- as.data.table(dt_ppc)
+=======
+  po_draws <- fit$draws("y_rep", format = "matrix")
+  po_summary <- t(apply(po_draws, 2, function(x) quantile(x, probs = c(0.025, 0.5, 0.975))))
+  colnames(po_summary) <- c("CL", "M", "CU")
+  dt_ppc <- as.data.table(po_summary)
+>>>>>>> 98c7e2a027fa27661d6732fbb5635fcc0cc3f6e3
 
   dt_ppc$y <- stan_data$y
   dt_ppc[, inside_CI := between(y, q2.5, q97.5)]

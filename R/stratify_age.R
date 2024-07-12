@@ -27,7 +27,6 @@
 #' @return A data.table object with the original age column stratified into
 #' age strata according to the predefined ranges.
 #' @import data.table
-#' @importFrom stats cut
 #' @examples
 #' dt <- data.table(age = c(23, 56, 70, 81))
 #' stratify_age(dt)
