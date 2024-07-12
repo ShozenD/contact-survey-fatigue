@@ -14,7 +14,7 @@ clean_labels <- function(x) {
     stringr::str_detect(x, "^hh_size") ~ "Household size",
     stringr::str_detect(x, "^job") ~ "Employment status"
   )
-  variable <- factor(variable, levels = c("Age group", "Gender", "Household size", "Education", "Employment status"))
+  variable <- factor(variable, levels = c("Education", "Age group", "Gender", "Household size", "Employment status"))
 
   x <- stringr::str_remove(x, "edu_")
   x <- stringr::str_remove(x, "age_strata_")
@@ -22,8 +22,8 @@ clean_labels <- function(x) {
   x <- stringr::str_remove(x, "job_")
 
   labels <- case_when(
-    x == "Nursery or pre-school_0-5" ~ "Nursery/Pre-shool [0-5]",
     x == "Raised-at-home-toddler_0-5" ~ "Raised-at-home-toddler [0-5]",
+    x == "Nursery or pre-school_0-5" ~ "Nursery/Pre-shool [0-5]",
     x == "Student/Pupil_0-5" ~ "Student [0-5]",
     x == "Student/Pupil_6-9" ~ "Student [6-9]",
     x == "Student/Pupil_10-14" ~ "Student [10-14]",
@@ -37,7 +37,7 @@ clean_labels <- function(x) {
     x == "Unemployed but looking for a job" ~ "Unemployed [seeking job]",
     TRUE ~ x
   )
-  levs <- c(labels[5:20], labels[1:4], labels[21:29])
+  levs <- c(labels[1:4], labels[5:20], labels[21:29])
   labels <- factor(labels, levels = levs)
 
   return(list(variable = variable, labels = labels))

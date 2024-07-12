@@ -34,11 +34,8 @@ posterior_predictive_checks <- function(fit, stan_data, config, outdir = NA) {
 
     if (stringr::str_detect(config$model$name, "^zi")) {
       dt_ppc <- posterior_predictive_checks.zi(fit, stan_data)
-    } else if (stringr::str_detect(config$model$name, "[^pois|^rsb]")) {
+    } else if (stringr::str_detect(config$model$name, "[^pois|^negb]")) {
       dt_ppc <- posterior_predictive_checks.pois(fit, stan_data)
-    } else if (stringr::str_detect(config$model$name, "^logit")) {
-      # TODO: Implement
-      warning("This feature is yet to be implemented")
     }
   }
 
@@ -58,7 +55,7 @@ posterior_predictive_checks.pois <- function(fit, stan_data) {
   colnames(po_summary) <- c("CL", "M", "CU")
   dt_ppc <- as.data.table(po_summary)
 
-  dt_ppc$y <- c(stan_data$y0, stan_data$y1)
+  dt_ppc$y <- c(stan_data$y1, stan_data$y2)
   dt_ppc[, inside_CI := y >= CL & y <= CU]
   cat(" The proportion of points within the 95% posterior predictive interval is:", mean(dt_ppc$inside_CI)*100, "%\n")
 
@@ -79,13 +76,11 @@ posterior_predictive_checks.zi <- function(fit, stan_data) {
 }
 
 posterior_predictive_checks.longit <- function(fit, stan_data) {
-  po_draws <- fit$draws("yhat", format = "matrix")
-  po_summary <- t(apply(po_draws, 2, function(x) quantile(x, probs = c(0.025, 0.5, 0.975))))
-  colnames(po_summary) <- c("CL", "M", "CU")
-  dt_ppc <- as.data.table(po_summary)
+  dt_ppc <- fit$summary("y_rep", quantiles = ~ quantile2(., probs = c(0.025, 0.975)))
+  dt_ppc <- as.data.table(dt_ppc)
 
   dt_ppc$y <- stan_data$y
-  dt_ppc[, inside_CI := y >= CL & y <= CU]
+  dt_ppc[, inside_CI := between(y, q2.5, q97.5)]
   cat(" The proportion of points within the 95% posterior predictive interval is:", mean(dt_ppc$inside_CI)*100, "%\n")
 
   return(dt_ppc)
