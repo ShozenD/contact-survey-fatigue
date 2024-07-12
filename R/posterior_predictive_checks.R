@@ -102,15 +102,8 @@ posterior_predictive_checks.zi <- function(fit, stan_data) {
 }
 
 posterior_predictive_checks.longit <- function(fit, stan_data) {
-<<<<<<< HEAD
   dt_ppc <- fit$summary("y_rep", quantiles = ~ quantile2(., probs = c(0.025, 0.975)))
   dt_ppc <- as.data.table(dt_ppc)
-=======
-  po_draws <- fit$draws("y_rep", format = "matrix")
-  po_summary <- t(apply(po_draws, 2, function(x) quantile(x, probs = c(0.025, 0.5, 0.975))))
-  colnames(po_summary) <- c("CL", "M", "CU")
-  dt_ppc <- as.data.table(po_summary)
->>>>>>> 98c7e2a027fa27661d6732fbb5635fcc0cc3f6e3
 
   dt_ppc$y <- stan_data$y
   dt_ppc[, inside_CI := between(y, q2.5, q97.5)]
