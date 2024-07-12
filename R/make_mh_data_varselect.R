@@ -5,39 +5,34 @@
 #'
 #' @return Stan data list
 #' @export
-make_stan_data_varselect <- function(data,
-                                     config,
-                                     s1_results = NA,
-                                     s2_results = NA,
-                                     remove_first_dummy = TRUE){
+make_mh_data_varselect <- function(data,
+                                   config,
+                                   s1_results = NA,
+                                   s2_results = NA,
+                                   remove_first_dummy = TRUE){
 
   if (anyNA(s1_results)) {
-    stan_data <- make_stan_data_varselect.s1(data, remove_first_dummy)
-    stan_data <- add_horseshoe_params(stan_data, 1, config)
+    mh_data <- make_mh_data_varselect.s1(data, remove_first_dummy)
   } else if (anyNA(s2_results)) {
-    stan_data <- make_stan_data_varselect.s2(data, s1_results)
-    stan_data <- add_horseshoe_params(stan_data, 2, config)
+    mh_data <- make_stan_data_varselect.s2(data, s1_results)
   } else {
-    stan_data <- make_stan_data_varselect.s3(data, s1_results, s2_results)
+    mh_data <- make_stan_data_varselect.s3(data, s1_results, s2_results)
   }
 
-  return(stan_data)
+  return(mh_data)
 }
 
-make_stan_data_varselect.s1 <- function(data, remove_first_dummy = TRUE) {
+make_mh_data_varselect.s1 <- function(data, remove_first_dummy = TRUE) {
   y <- data$y
-  X <- make_design_matrices(data, remove_first_dummy)
+  D <- make_design_matrices(data, remove_first_dummy)
 
   ridx <- which(data$repeat_status == 0)
-  y <- y[ridx]; X <- X[ridx, ];
-  stan_data <- list(
-    N = length(y),
-    P = ncol(X),
-    X = X,
-    y = y
-  )
+  y <- y[ridx]
+  a <- D$a[ridx]
+  X <- D$X[ridx, ]
+  Z <- D$Z[ridx, ]
 
-  return(stan_data)
+  list(y = y, a = a, X = X, Z = Z)
 }
 
 make_stan_data_varselect.s2 <- function(data, s1_results) {
