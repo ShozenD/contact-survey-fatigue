@@ -32,7 +32,7 @@ dt_nhh <- data.table(covimod_data$nhh)
 cat(" Preprocessing data...\n")
 for (w in 1:MAX_WAVE) {
   cat(paste0("  Wave ", w, "...\n"))
-  dt_cnt <- suppressWarnings(preproc_gam_data(w, dt_part, dt_hh, dt_nhh, nuts))
+  dt_cnt <- preproc_gam_data(w, dt_part, dt_hh, dt_nhh, nuts)
 
   # ===== Make dummy variables =====
   dum_sex <- make_dummy_matrix(dt_cnt, "gender")[,"Female"]                      # Gender
@@ -42,16 +42,17 @@ for (w in 1:MAX_WAVE) {
   dum_urbn <- make_dummy_matrix(dt_cnt, "urbn_type", c("intermediate", "urban")) # Urban type
 
   if (w == 10) {
-    X <- cbind(dum_sex, dum_hhsize, dum_job, dum_urbn)
+    dum_dow <- matrix(0, nrow = nrow(dt_cnt), ncol = 1)
+    X <- cbind(dum_sex, dum_hhsize, dum_dow, dum_job, dum_urbn) # Trick to ensure that the design matrix keeps the same dimensions
   } else {
-    dum_dow <- make_dummy_matrix(dt_cnt, "dow")[,"weekend"]       # Day of week
+    dum_dow <- make_dummy_matrix(dt_cnt, "dow")[,"weekend"]
     X <- cbind(dum_sex, dum_hhsize, dum_dow, dum_job, dum_urbn)
   }
 
   # ===== Prepare repeat effects dummy =====
-  include_age_strata <- unique(dt_cnt$age_strata)
-  include_age_strata <- include_age_strata[!(include_age_strata %in% c("25-34", "35-44"))]
-  rdum_age <- make_dummy_matrix(dt_cnt, "age_strata", include_age_strata)
+  ainc <- levels(dt_cnt$age_strata)
+  ainc <- ainc[!(ainc %in% c("25-34", "35-44"))]
+  rdum_age <- make_dummy_matrix(dt_cnt, "age_strata", ainc)
   rdum_sex <- make_dummy_matrix(dt_cnt, "gender", "Female")
   rdum_hhsize <- make_dummy_matrix(dt_cnt, "hh_size", "1")
   rdum_job <- make_dummy_matrix(dt_cnt, "job", c("full_time", "part_time", "self_employed", "student",
