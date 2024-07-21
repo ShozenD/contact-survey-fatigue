@@ -29,10 +29,8 @@ plot_baseline_effects <- function(fit, stan_data, config, outdir = NA) {
 
   # Clean labels
   # If the model is poisson or rescaled beta
-  if (str_detect(config$model$name, "^[pois|rsb]")) {
-    cleaned_labels <- clean_labels(colnames(stan_data$X0))
-  } else if (stringr::str_detect(config$model$name, "^logit")) {
-    cleaned_labels <- clean_labels(colnames(stan_data$X0))
+  if (str_detect(config$model$name, "^[pois|negb]")) {
+    cleaned_labels <- clean_labels(colnames(stan_data$X1))
   } else {
     # Zero inflated case
     cleaned_labels <- clean_labels(colnames(stan_data$X00))

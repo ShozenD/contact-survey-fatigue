@@ -36,10 +36,8 @@ plot_repeat_effects.constrained <- function(fit, stan_data) {
   df_po_summary$p <- as.numeric(gsub("beta\\[([0-9]+)\\]", "\\1", df_po_summary$variable))
   df_po_summary <- filter(df_po_summary, p > stan_data$P)
 
-  if (stringr::str_detect(config$model$name, "^[pois|rsb]")) {
-    cleaned_labels <- clean_labels(colnames(stan_data$X0))
-  } else if (stringr::str_detect(config$model$name, "^logit")) {
-    cleaned_labels <- clean_labels(colnames(stan_data$X0))
+  if (stringr::str_detect(config$model$name, "^[pois|negb]")) {
+    cleaned_labels <- clean_labels(colnames(stan_data$X1))
   } else {
     # Zero inflated case
     cleaned_labels <- clean_labels(colnames(stan_data$X00))
@@ -59,14 +57,8 @@ plot_repeat_effects.constrained <- function(fit, stan_data) {
                        labels = scales::percent(seq(0, 100, 20), scale = 1),
                        limits = c(-100, 0),
                        )
-
-  if (stringr::str_detect(config$mode$name, "^logit")) {
-    plt <- plt +
-      labs(y = " Percent decrease in\nodds ratio of report", x = "Characteristic of contacting individuals")
-  } else {
-    plt <- plt +
-      labs(y = " Percent decrease in\naverage contact intensity", x = "Characteristic of contacting individuals")
-  }
+  plt <- plt +
+    labs(y = " Percent decrease in\naverage contact intensity", x = "Characteristic of contacting individuals")
 
   plt <- plt +
     theme_bw() +
