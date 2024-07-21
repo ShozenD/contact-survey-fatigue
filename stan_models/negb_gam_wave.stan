@@ -41,9 +41,9 @@ data {
 
   vector[P] hatBeta;
 
-  vector[Q]<lower=0> hatGamma;
+  vector<lower=0>[Q] hatGamma;
   vector[Q] hatZeta;
-  vector[Q]<lower=0> hatEta;
+  vector<lower=0>[Q] hatEta;
 
   int<lower=1> M;
   real<lower=0> C;
@@ -95,7 +95,7 @@ model {
   lp = lp + exponential_lupdf(reciprocal_phi | 1);
 
   // ========== Repeat effect terms ==========
-  lp = lp + normal_lupdf(gamma | hatGamma, 0.5);
+  lp = lp + normal_lupdf(gamma | hatGamma, 0.3);
   lp = lp + normal_lupdf(zeta | hatZeta, 0.1);
   lp = lp + normal_lupdf(eta | hatEta, 0.1);
 
