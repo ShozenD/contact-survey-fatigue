@@ -30,7 +30,7 @@ file_list <- list.files(fit_dir, pattern = paste(config$experiment_name, repeat_
 
 if (cli_args$arr_idx <= length(file_list)) {
   fname <- file_list[cli_args$arr_idx]
-  fit <- read_rds(file.path(fit_dir, paste0(fname, ".rds")))
+  fit <- read_rds(file.path(fit_dir, fname))
   cat(" Calculating quantities of interest...\n")
   dt_cint <- summarise_wcint(fit)
 
@@ -39,7 +39,7 @@ if (cli_args$arr_idx <= length(file_list)) {
   if (!dir.exists(out_dir)) dir.create(out_dir)
   write_rds(dt_cint, file.path(out_dir, "weighted_intensity.rds"))
 } else {
-  cat(" No data file found for the array index ", cli_args$arr_idx, "\n")
+  cat(" No data file found for the array index", cli_args$arr_idx, "\n")
   cat(" Skipping...\n")
 }
 

@@ -32,7 +32,9 @@ if (!str_detect(config$model$name, "_noadj")) { # If the model adjust for the re
   df_rho <- fit$summary("rho",
                         posterior::default_summary_measures()[1:4],
                         quantiles = ~ quantile2(., probs = c(.025, .975)))
-  df_rho$r <- seq(0, nrow(df_rho) - 1)
+  if (!str_detect(config$model$name, "_single")) {
+    df_rho$r <- seq(0, nrow(df_rho) - 1)
+  }
   saveRDS(df_rho, file.path(out_dir, "po_sum_rho.rds"))
 
   # Extract posterior samples of gamma, zeta, and eta (the repeat effects)
