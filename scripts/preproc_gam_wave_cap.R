@@ -39,6 +39,8 @@ for (w in 1:MAX_WAVE) {
   if (nrow(dt_cnt[rep <= repeat_cap]) < 300) {
     cat("  Not enough data for wave ", w, ". Skipping...\n")
     next
+  } else {
+    dt_cnt <- dt_cnt[rep <= repeat_cap]
   }
 
   # ===== Make dummy variables =====
