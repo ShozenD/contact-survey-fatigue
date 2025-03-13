@@ -34,21 +34,6 @@ dt_cnt <- preproc_gam_data(config$data$wave, dt_part, dt_hh, dt_nhh, nuts)
 dt_cnt <- dt_cnt[rep <= REPEAT]
 
 # ===== Prepare participant characteristics X =====
-make_dummy_matrix <- function(data, variable, include = NULL, ...) {
-  data <- setDT(data)
-  data <- data[, ..variable]
-  data <- fastDummies::dummy_cols(data,
-                                  select_columns = variable,
-                                  remove_selected_columns = TRUE,
-                                  omit_colname_prefix = TRUE,
-                                  ...)
-  if (!is.null(include)) data <- data[, ..include]
-  data <- as.matrix(data)
-  data[is.na(data)] <- 0
-
-  return(data)
-}
-
 # ===== Make dummy variables =====
 dum_sex <- make_dummy_matrix(dt_cnt, "gender")[,"Female"]
 dum_hhsize <- make_dummy_matrix(dt_cnt, "hh_size", remove_first_dummy = TRUE)

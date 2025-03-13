@@ -10,17 +10,15 @@ load_all()
 # Parse command line arguments
 option_list <- list(
   make_option(c("--config"), type = "character", default = NA, help = "configuration file", dest = "config_file"),
-  make_option(c("--arr_idx"), type = "integer", default = NA, help = "pbs array index", dest = "arr_idx")
 )
 cli_args <- parse_args(OptionParser(option_list = option_list))
-REPEAT <- cli_args$arr_idx - 1
 
 cat(" Loading configurations...\n")
 config <- read_yaml(file.path("config", cli_args$config_file))
 
 # ===== Load data =====
 cat(" Loading data...\n")
-fname <- paste("covimod_wave", config$data$wave, "increp", REPEAT, sep = "_")
+fname <- paste("covimod_wave", config$data$wave, "increp", 0, sep = "_")
 fname <- paste0(fname, ".rds")
 stan_data <- read_rds(file.path("data/silver", fname))
 
