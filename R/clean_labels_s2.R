@@ -1,23 +1,12 @@
-#' Clean the labels of the variables
+#' Clean labels for the second stage of the variable selection analysis
 #'
-#' @param su Posterior summary
-#' @param stan_data The Stan data used to fit the model
+#' @param su posterior summary
+#' @param stan_data Stan data used to fit the model
 #'
-#' @return
-#' @importFrom stringr str_detect str_remove
-#' @importFrom dplyr case_when
-#' @importFrom stringr str_split
+#' @return data.table
 #' @export
-clean_labels <- function(su, stan_data) {
-  su$varname <- c(
-    colnames(stan_data$U_age),
-    colnames(stan_data$U_hh),
-    colnames(stan_data$U_gender),
-    colnames(stan_data$V_job),
-    colnames(stan_data$V_symp),
-    colnames(stan_data$V_dow),
-    colnames(stan_data$V_urbn)
-  )
+clean_labels_s2 <- function(su, stan_data) {
+  su$varname <- colnames(stan_data$W)
   su[, variable := stringr::str_split(varname, "_", simplify = TRUE)[, 1]]
 
   .pattern <- "(age_strata_student|age_strata|gender|hh_size|job|symp_none|dow|urbn_type)_"

@@ -1,0 +1,76 @@
+```{r message=FALSE}
+library(dplyr)
+library(tidyr)
+library(readr)
+library(rstanarm)
+library(loo)
+library(bayesplot)
+library(projpred)
+library(devtools)
+library(data.table)
+
+load_all()
+```
+
+```{r}
+dt <- read_rds("../data/silver/covimod_wave_4.rds")
+head(dt)
+```
+
+```{r}
+hist(dt$y, breaks = 30)
+```
+
+To make things a bit easier, I shall remove the extreme outliers.
+```{r}
+dt <- dt[dt$y < 30,]
+```
+```{r}
+colnames(dt)
+```
+
+```{r}
+dt_clean <- dt %>% filter(!is.na(age), !is.na(gender))
+```
+
+```{r}
+dt_clean <- dt_clean %>% 
+  select(age, gender, hh_size, repeat_status, dow, urbn_type, y) %>%
+  drop_na()
+```
+
+
+```{r}
+refm_fit <- stan_glm(y ~ age + gender + hh_size + repeat_status + dow + urbn_type,
+                     data = dt_clean,
+                     family = poisson,
+                     chains = 2,
+                     iter = 1000)
+```
+
+```{r}
+
+```
+
+
+```{r}
+refm_obj <- get_refmodel(refm_fit)
+```
+
+```{r}
+cvvs_fast <- cv_varsel(
+  refm_obj,
+  validate_search = FALSE,
+  method = "L1",
+  refit_prj = FALSE,
+  nterms = 10,
+  verbose = TRUE
+)
+```
+```{r}
+plot(cvvs_fast, stats = "mlpd", ranking_nterms_max = NA)
+```
+
+
+
+

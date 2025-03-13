@@ -18,6 +18,9 @@ dt_part <- setDT(covimod_data$part)
 dt_nhh <- setDT(covimod_data$nhh)
 dt_hh <- setDT(covimod_data$hh)
 
+min(dt_part$date)
+max(dt_part$date)
+
 # ===== Data wrangling =====
 # Compute the number of repeats for each participant
 setkeyv(dt_part, cols = c("new_id", "wave"))
@@ -70,6 +73,11 @@ dt[, hh_p_incl_0 := NULL]
 dt <- dt[!is.na(age_strata) & !is.na(gender) & age_strata != "85+"] # Remove missing and 85+ age group
 dt <- preproc_age_job(dt)
 dt[, y := ifelse(y > 30, 30, y)] # Truncate the number of contacts at 30
+
+cat("First time participants:", nrow(dt[rep == 0]))
+cat("1-5 participations:", nrow(dt[between(rep, 1, 5)]))
+cat("6-10 participations:", nrow(dt[between(rep, 6, 10)]))
+cat("11-15 participations:", nrow(dt[rep == 11]))
 
 # ===== Create design matrix =====
 make_dummy_matrix <- function(data, variable, include = NULL, ...) {

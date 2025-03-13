@@ -9,6 +9,9 @@ option_list <- list(
   make_option(c("--config"), type = "character", default = NA, help = "configuration file", dest = "config_file")
 )
 cli_args <- parse_args(OptionParser(option_list = option_list))
+
+cli_args$config_file <- "zinegb_horseshoe.yaml"
+
 cat(" Loading configurations...\n")
 config <- read_yaml(file.path("config", cli_args$config_file))
 

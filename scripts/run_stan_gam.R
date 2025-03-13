@@ -9,7 +9,7 @@ load_all()
 # ===== Load configurations =====
 # Parse command line arguments
 option_list <- list(
-  make_option(c("--config"), type = "character", default = NA, help = "configuration file", dest = "config_file"),
+  make_option(c("--config"), type = "character", default = NA, help = "configuration file", dest = "config_file")
 )
 cli_args <- parse_args(OptionParser(option_list = option_list))
 
@@ -38,8 +38,7 @@ stan_model <- cmdstan_model(file.path("stan_models", paste0(config$model$name, "
 init_func <- function() {
   list(
     alpha = rnorm(1, 1.33, 0.1),
-    reciprocal_phi = rexp(1, 1),
-    sigma_beta = rcauchy(1, 0, 1)
+    reciprocal_phi = rexp(1, 1)
   )
 }
 

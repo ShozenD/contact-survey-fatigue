@@ -4,7 +4,7 @@
 \alias{posterior_predictive_checks}
 \title{Posterior Predictive Checks for Different Model Types}
 \usage{
-posterior_predictive_checks(fit, stan_data, config, outdir = NA)
+posterior_predictive_checks(fit, stan_data, type, outdir = NA)
 }
 \arguments{
 \item{fit}{A Stan model fit object.}
@@ -13,7 +13,7 @@ posterior_predictive_checks(fit, stan_data, config, outdir = NA)
 model fitting process. The structure should align with what is expected
 by the specific model type.}
 
-\item{config}{A configuration list.}
+\item{type}{The type of model}
 
 \item{outdir}{An optional directory path as a character string where the
 output will be saved. If \code{NA} (default), the function emits a warning and

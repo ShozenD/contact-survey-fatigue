@@ -4,13 +4,12 @@
 \alias{clean_labels}
 \title{Clean the labels of the variables}
 \usage{
-clean_labels(x)
+clean_labels(su, stan_data)
 }
 \arguments{
-\item{x}{A character vector of variable names}
-}
-\value{
-A list of variables and labels
+\item{su}{Posterior summary}
+
+\item{stan_data}{The Stan data used to fit the model}
 }
 \description{
 Clean the labels of the variables
