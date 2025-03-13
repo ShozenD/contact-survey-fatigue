@@ -19,7 +19,6 @@ config <- read_yaml(file.path("config", cli_args$config_file))
 
 # ===== Load data =====
 cat(" Loading data...\n")
-cat(" Wave ", w, "\n")
 
 # Load data
 repeat_cap <- config$data$repeat_cap

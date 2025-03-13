@@ -18,11 +18,7 @@ config <- read_yaml(file.path("config", cli_args$config_file))
 
 # ===== Load data =====
 cat(" Loading data...\n")
-data <- read_rds("data/silver/covimod_wave_3_12.rds")
-
-# ===== Prepare data =====
-cat(" Preparing Stan data...\n")
-stan_data <- make_stan_data_longit(data)
+stan_data <- read_rds("data/silver/covimod_wave_3_12.rds")
 
 # Save stan_data for convienient access from different scripts
 out_dir <- config$out_dir
@@ -45,7 +41,7 @@ stan_fit <- stan_model$sample(data = stan_data,
                               iter_sampling = config$mcmc$iter_sampling,
                               max_treedepth = config$mcmc$max_treedepth,
                               adapt_delta = config$mcmc$adapt_delta,
-                              refresh = 50)
+                              refresh = 100)
 
 # ===== Save fitted model =====
 cat(" Saving the fitted model...\n")

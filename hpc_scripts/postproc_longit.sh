@@ -1,11 +1,11 @@
 #!/bin/bash
 REPO_PATH="/rds/general/user/sd121/home/contact-survey-fatigue"
 OUT_PATH="/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
-CONFIG_FILE="pois_longit_logistic.yaml"
+CONFIG_FILE="negb_longit_hill.yaml"
 
 # Create main script
 # TODO: Don't recycle the environment from bayes-rate-consistency
-cat > "$OUT_PATH/postproc-summarise-longit.pbs" <<EOF
+cat > "$OUT_PATH/postproc_longit.pbs" <<EOF
 #!/bin/bash
 #PBS -l walltime=08:00:00
 #PBS -l select=1:ncpus=4:ompthreads=1:mem=50gb
@@ -25,4 +25,4 @@ EOF
 
 # Execute main script
 cd $OUT_PATH
-qsub "postproc-summarise-longit.pbs"
+qsub "postproc_longit.pbs"
