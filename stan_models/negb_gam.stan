@@ -68,9 +68,9 @@ data {
   array[N] int<lower=1> aid;   // age index
   array[N] int<lower=1> rid;   // repeat index
 
-  vector<lower=0>[Q] hat_gamma;
-  vector[Q] hat_zeta;
-  vector<lower=0>[Q] hat_eta;
+  real<lower=0> hat_gamma;
+  real hat_zeta;
+  real<lower=0> hat_eta;
 
   int<lower=1> M;
   real<lower=0> C;

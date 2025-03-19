@@ -10,7 +10,7 @@ cat > "$OUT_PATH/postproc_gam_array.pbs" <<EOF
 #PBS -l select=1:ncpus=4:ompthreads=1:mem=50gb
 #PBS -J 1-21
 
-module load anaconda3/personal
+eval "\$(~/miniforge3/bin/conda shell.bash hook)"
 source activate contact-survey-fatigue
 
 # Move into repository
