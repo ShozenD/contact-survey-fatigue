@@ -31,30 +31,30 @@ dt_nhh <- data.table(covimod_data$nhh)
 # ========== Data preprecoessing ==========
 cat(" Preprocessing data...\n")
 dt_cnt <- preproc_gam_data(config$data$wave, dt_part, dt_hh, dt_nhh, nuts)
-dt_cnt <- dt_cnt[rep <= REPEAT]
+dt_cnt_subset <- dt_cnt[`rep` <= REPEAT]
 
 # ===== Prepare participant characteristics X =====
-X_sex <- make_dummy_matrix(dt_cnt, "gender")
-X_hhsize <- make_dummy_matrix(dt_cnt, "hh_size")
-X_job <- make_dummy_matrix(dt_cnt, "job")
-X_urbn <- make_dummy_matrix(dt_cnt, "urbn_type", c("intermediate", "urban"))
+X_sex <- make_dummy_matrix(dt_cnt_subset, "gender")
+X_hhsize <- make_dummy_matrix(dt_cnt_subset, "hh_size")
+X_job <- make_dummy_matrix(dt_cnt_subset, "job")
+X_urbn <- make_dummy_matrix(dt_cnt_subset, "urbn_type", c("intermediate", "urban"))
 
 # ===== Prepare repeat effects dummy =====
-select_age_strata <- unique(dt_cnt$age_strata)
+select_age_strata <- unique(dt_cnt_subset$age_strata)
 select_age_strata <- select_age_strata[!(select_age_strata %in% c("35-44", "70-74"))]
-Z_age <- make_dummy_matrix(dt_cnt, "age_strata", select_age_strata)
-Z_sex <- make_dummy_matrix(dt_cnt, "gender", "Female")
-Z_hhsize <- make_dummy_matrix(dt_cnt, "hh_size", "1")
+Z_age <- make_dummy_matrix(dt_cnt_subset, "age_strata", select_age_strata)
+Z_sex <- make_dummy_matrix(dt_cnt_subset, "gender", "Female")
+Z_hhsize <- make_dummy_matrix(dt_cnt_subset, "hh_size", "1")
 
-select_job <- unique(dt_cnt$job)
+select_job <- unique(dt_cnt_subset$job)
 select_job <- select_job[!(select_job %in% c("retired", NA))]
-Z_job <- make_dummy_matrix(dt_cnt, "job", select_job)
-Z_urbn <- make_dummy_matrix(dt_cnt, "urbn_type", c("rural", "intermediate"))
+Z_job <- make_dummy_matrix(dt_cnt_subset, "job", select_job)
+Z_urbn <- make_dummy_matrix(dt_cnt_subset, "urbn_type", c("rural", "intermediate"))
 Z <- cbind(Z_age, Z_sex, Z_hhsize, Z_job)
 
 # ===== Prepare indexes =====
-aid <- dt_cnt$imp_age + 1
-rid <- dt_cnt$rep + 1
+aid <- dt_cnt_subset$imp_age + 1
+rid <- dt_cnt_subset$rep + 1
 
 # ===== HSGP =====
 x_hsgp <- seq(0, 84)
@@ -62,7 +62,7 @@ x_hsgp <- (x_hsgp - mean(x_hsgp)) / sd(x_hsgp)
 
 # ===== Gather and export the data =====
 stan_data <- list(
-  N = nrow(dt_cnt),
+  N = nrow(dt_cnt_subset),
   A = 85,
   P_sex = ncol(X_sex),
   P_hhsize = ncol(X_hhsize),
@@ -79,15 +79,15 @@ stan_data <- list(
   aid = aid,
   rid = rid,
 
-  hatGamma = config$model$hatGamma,
-  hatZeta = config$model$hatZeta,
-  hatEta = config$model$hatEta,
+  hat_gamma = config$model$hat_gamma,
+  hat_zeta = config$model$hat_zeta,
+  hat_eta = config$model$hat_eta,
 
   M = config$model$M,
   C = config$model$C,
   x_hsgp = x_hsgp,
 
-  y = dt_cnt$y
+  y = dt_cnt_subset$y
 )
 
 file_name <- paste("covimod_wave", config$data$wave, "increp", REPEAT, sep = "_")

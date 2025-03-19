@@ -19,7 +19,7 @@ REPEAT <- cli_args$arr_idx - 1
 
 cat(" Loading data and configurations...\n")
 config <- read_yaml(file.path("config", cli_args$config_file))
-fname <- paste("covimod_wave", config$data$wave, "increp", REPEAT, sep = "_")
+fname <- paste(config$experiment_name, "increp", REPEAT, sep = "_")
 stan_data <- read_rds(file.path(config$out_dir, "stan_data", paste0(fname, ".rds")))
 
 cat(" Loading the fitted model...\n")
@@ -34,27 +34,34 @@ if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 fit_summary <- make_convergence_diagnostic_stats(fit, outdir = out_dir)
 
 cat(" Summarizing posterior samples...\n")
-colnames(stan_data$X)
-# Weight by age and gender
+# ===== Poststratification by age and gender =====
+# Load population weights
 w <- setDT(read_rds("data/population_weights/gender_by_age.rds"))
-wm <- w[gender == "Male"]$weight
-wf <- w[gender == "Female"]$weight
+wf <- w[gender == "Female", weight]
+wm <- w[gender == "Male", weight]
 
-draws_log_m <- fit$draws("log_m", format = "matrix")
-draws_beta_f <- fit$draws("beta[1]", format = "matrix")
-draws_log_m_f <- sweep(draws_log_m, 1, draws_beta_f, "+")
-draws_log_m_f <- sweep(draws_log_m_f, 2, log(wf), "+")
-draws_log_m_m <- sweep(draws_log_m, 2, log(wm), "+")
-draws_log_m <- log(exp(draws_log_m_f) + exp(draws_log_m_m))
+# Extract draws
+log_m <- fit$draws("log_m", format = "matrix")
+beta_sex <- fit$draws("beta_sex", format = "matrix")
+beta_m <- beta_sex[,1]
+beta_f <- beta_sex[,2]
 
-# Weight by household size
+# Compute weighted female and male values
+f_vals <- sweep(log_m, 1, beta_f, "+")
+f_vals <- sweep(f_vals, 2, log(wf), "+")
+m_vals <- sweep(log_m, 1, beta_m, "+")
+m_vals <- sweep(m_vals, 2, log(wm), "+")
+
+# Combine
+draws_log_m <- log(exp(f_vals) + exp(m_vals))
+
+# ===== Poststratification by household size =====
 w <- setDT(read_rds("data/population_weights/hhsize.rds"))
-draws_log_m_1 <- sweep(draws_log_m, 1, fit$draws("beta[2]", format = "matrix"), "+") + log(w$weight[1])
-draws_log_m_2 <- sweep(draws_log_m, 1, fit$draws("beta[3]", format = "matrix"), "+") + log(w$weight[2])
-draws_log_m_3 <- draws_log_m + log(w$weight[3])
-draws_log_m_4 <- sweep(draws_log_m, 1, fit$draws("beta[4]", format = "matrix"), "+") + log(w$weight[4])
-draws_log_m_5 <- sweep(draws_log_m, 1, fit$draws("beta[5]", format = "matrix"), "+") + log(w$weight[5])
-draws_log_m <- log(exp(draws_log_m_1) + exp(draws_log_m_2) + exp(draws_log_m_3) + exp(draws_log_m_4) + exp(draws_log_m_5))
+beta_hhsize <- fit$draws("beta_hhsize", format = "matrix")
+hhsize_draws <- lapply(seq_len(nrow(w)), function(i) {
+  sweep(draws_log_m, 1, beta_hhsize[,i], "+") + log(w$weight[i])
+})
+draws_log_m <- log(Reduce(`+`, lapply(hhsize_draws, exp)))
 
 # Marginal contact intensity
 dt_mcint <- setDT(summarise_draws(draws_log_m, ~ quantile2(exp(.x), probs = c(0.025, 0.5, 0.975))))
@@ -62,7 +69,8 @@ dt_mcint[, age := as.numeric(gsub("log_m\\[([0-9]+)\\]", "\\1", variable)) - 1]
 saveRDS(dt_mcint, file.path(out_dir, "marginal_contact_intensity.rds"))
 
 # Extract fixed effects
-df_beta <- fit$summary("beta", quantiles = ~ quantile2(., probs = c(0.025, 0.5, 0.975)))
+vars <- fit$metadata()$stan_variables
+df_beta <- fit$summary(vars[grep("beta_.*", vars)], quantiles = ~ quantile2(., probs = c(0.025, 0.5, 0.975)))
 saveRDS(df_beta, file.path(out_dir, "po_sum_beta.rds"))
 
 cat(" Done!\n")

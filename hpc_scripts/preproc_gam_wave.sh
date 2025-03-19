@@ -1,13 +1,13 @@
 #!/bin/bash
 REPO_PATH="/rds/general/user/sd121/home/contact-survey-fatigue"
 OUT_PATH="/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
-CONFIG_FILE="negb_gam_wave_cap10.yaml"
+CONFIG_FILE="negb_gam_wave.yaml"
 
 # Create main script
-cat > "$OUT_PATH/preproc_gam_wave_cap.pbs" <<EOF
+cat > "$OUT_PATH/run_stan_gam_wave.pbs" <<EOF
 #!/bin/bash
-#PBS -l walltime=01:00:00
-#PBS -l select=1:ncpus=4:ompthreads=1:mem=16gb
+#PBS -l walltime=08:00:00
+#PBS -l select=1:ncpus=8:ompthreads=1:mem=50gb
 
 module load anaconda3/personal
 source activate contact-survey-fatigue
@@ -15,9 +15,10 @@ source activate contact-survey-fatigue
 # Move into repository
 cd $REPO_PATH
 
-Rscript scripts/preproc_gam_wave_cap.R --config "$CONFIG_FILE"
+# Create datasets
+Rscript scripts/preproc_gam_data_wave.R --config "$CONFIG_FILE"
 EOF
 
 # Execute main script
 cd $OUT_PATH
-qsub "preproc_gam_wave_cap.pbs"
+qsub "run_stan_gam_wave.pbs"
