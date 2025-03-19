@@ -3,7 +3,6 @@ library(readr)
 library(sf)
 library(lubridate)
 library(data.table)
-library(tidyverse)
 library(fastDummies)
 library(devtools)
 load_all()
@@ -17,9 +16,6 @@ nuts <- read_sf(file.path(repo_path, "data", "NUTS_RG_20M_2021_3035.geojson"))
 dt_part <- setDT(covimod_data$part)
 dt_nhh <- setDT(covimod_data$nhh)
 dt_hh <- setDT(covimod_data$hh)
-
-min(dt_part$date)
-max(dt_part$date)
 
 # ===== Data wrangling =====
 # Compute the number of repeats for each participant
@@ -98,19 +94,11 @@ make_dummy_matrix <- function(data, variable, include = NULL, ...) {
 ## Prepare participant characteristics X
 
 # Fixed effects
-dum_age <- make_dummy_matrix(dt, "age_strata", remove_most_frequent_dummy = TRUE)
-dum_sex <- make_dummy_matrix(dt, "gender")[,"Female"]
-dum_hhsize <- make_dummy_matrix(dt, "hh_size", remove_most_frequent_dummy = TRUE)
-dum_dow <- make_dummy_matrix(dt, "dow")[,"Weekend"]
-jobs_of_interest <- c("full_time", "long_term_sick",
-                      "unemployed_looking", "unemployed_not_looking",
-                      "retired", "self_employed",
-                      "student", "full_time_parent")
-dum_job <- make_dummy_matrix(dt, "job", include = jobs_of_interest)
-dum_urbn <- make_dummy_matrix(dt, "urbn_type", include = c("Urban", "Intermediate"))
-
-# ===== Combine the dummies =====
-X <- cbind(dum_age, dum_sex, dum_hhsize, dum_dow, dum_job, dum_urbn)  # Fixed effects
+X_age <- make_dummy_matrix(dt, "age_strata")
+X_hh <- make_dummy_matrix(dt, "hh_size")
+X_gender <- make_dummy_matrix(dt, "gender")
+X_job <- make_dummy_matrix(dt, "job")
+X_urbn <- make_dummy_matrix(dt, "urbn_type", include = c("Urban", "Intermediate"))
 
 # ===== Make Stan data =====
 wid <- dt$wave - min(dt$wave) + 1
@@ -118,8 +106,19 @@ rid <- dt$rep + 1
 
 stan_data <- list(
   N = nrow(dt),
-  P = ncol(X),
-  X = X,
+
+  P_age = ncol(X_age),
+  P_hh = ncol(X_hh),
+  P_gender = ncol(X_gender),
+  P_job = ncol(X_job),
+  P_urbn = ncol(X_urbn),
+
+  X_age = X_age,
+  X_hh = X_hh,
+  X_gender = X_gender,
+  X_job = X_job,
+  X_urbn = X_urbn,
+
   wid = wid,
   rid = rid,
   y = dt$y
