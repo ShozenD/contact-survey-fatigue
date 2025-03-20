@@ -47,14 +47,11 @@ if (!str_detect(config$model$name, "_noadj")) { # If the model adjust for the re
 }
 
 # Extract posterior samples of tau (time effect)
-draws <- fit$draws(c("alpha", "tau",
-                     "beta[5]",   # 45-54  
-                     "beta[8]",   # 75-79
-                     "beta[12]"), # student [6-9]
-                   format = "matrix")
+draws <- fit$draws(c("beta0", "tau", "beta_gender", "beta_age"), format = "matrix")
 
 marginal_cint <- function(draws, variable, label) {
-  x <- sweep(draws[,"alpha"], 1, draws[,variable], "+")
+  x <- sweep(draws[, "beta0"], 1, draws[,"beta_gender[1]"], "+") # Calculate for males
+  x <- sweep(x, 1, draws[,variable], "+")
   x <- sweep(draws[, str_detect(colnames(draws), "tau")], 1, x, "+")
   df <- summarise_draws(x, ~quantile2(exp(.x), probs = c(.025, .5, .975)))
   df$label <- label
@@ -62,13 +59,14 @@ marginal_cint <- function(draws, variable, label) {
   return(df)
 }
 
-df_mcint <- marginal_cint(draws, "beta[5]", "Male, 45-54, household size 3")
-df_mcint <- rbind(df_mcint, marginal_cint(draws, "beta[8]", "Male, 75-79, household size 3"))
-df_mcint <- rbind(df_mcint, marginal_cint(draws, "beta[12]", "Male, student [6-9], household size 3"))
+df_mcint <- marginal_cint(draws, "beta_age[9]", "Male, 45-54")
+df_mcint <- rbind(df_mcint, marginal_cint(draws, "beta_age[13]", "Male, 75-79"))
+df_mcint <- rbind(df_mcint, marginal_cint(draws, "beta_age[3]", "Male, student [6-9]"))
 saveRDS(df_mcint, file.path(out_dir, "marginal_contact_intensity.rds"))
 
 # Extract fixed effects
-df_beta <- fit$summary("beta", 
+vars <- fit$metadata()$stan_variables
+df_beta <- fit$summary(vars[grep("beta_.*", vars)],
                        posterior::default_summary_measures()[1:4],
                        quantiles = ~ quantile2(., probs = c(.025, .975)))
 saveRDS(df_beta, file.path(out_dir, "po_sum_beta.rds"))

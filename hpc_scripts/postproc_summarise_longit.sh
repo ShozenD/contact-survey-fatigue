@@ -1,7 +1,7 @@
 #!/bin/bash
 REPO_PATH="/rds/general/user/sd121/home/contact-survey-fatigue"
 OUT_PATH="/rds/general/user/sd121/home/contact-survey-fatigue-outputs"
-CONFIG_FILE="negb_longit_logistic.yaml"
+CONFIG_FILE="negb_longit_iid.yaml"
 
 # Create main script
 # TODO: Don't recycle the environment from bayes-rate-consistency
@@ -10,7 +10,7 @@ cat > "$OUT_PATH/postproc_longit.pbs" <<EOF
 #PBS -l walltime=08:00:00
 #PBS -l select=1:ncpus=4:ompthreads=1:mem=50gb
 
-module load anaconda3/personal
+eval "\$(~/miniforge3/bin/conda shell.bash hook)"
 source activate contact-survey-fatigue
 
 # Move into repository

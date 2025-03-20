@@ -10,7 +10,7 @@ cat > "$OUT_PATH/postproc_longit.pbs" <<EOF
 #PBS -l walltime=08:00:00
 #PBS -l select=1:ncpus=4:ompthreads=1:mem=50gb
 
-module load anaconda3/personal
+eval "\$(~/miniforge3/bin/conda shell.bash hook)"
 source activate contact-survey-fatigue
 
 # Move into repository
