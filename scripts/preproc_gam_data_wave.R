@@ -75,7 +75,7 @@ for (w in 1:MAX_WAVE) {
     X_hhsize = X_hhsize,
     X_job = X_job,
     X_urbn = X_urbn,
-    
+
     Z = Z,
     aid = aid,
     rid = rid,

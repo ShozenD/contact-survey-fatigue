@@ -62,13 +62,14 @@ dt  <- dt[, urbn_type := case_when(URBN_TYPE == "1" ~ "Urban",
 # Calculate the total number of contacts
 dt[, y := y_hh + y_nhh + y_grp]
 
+mean(dt$y > 30)
+
 # Truncate household size at 4 (more than 90% of all households)
 dt[, hh_size := ifelse(hh_p_incl_0 > 5, 5, hh_p_incl_0)]
 dt[, hh_p_incl_0 := NULL]
 
 dt <- dt[!is.na(age_strata) & !is.na(gender) & age_strata != "85+"] # Remove missing and 85+ age group
 dt <- preproc_age_job(dt)
-dt[, y := ifelse(y > 30, 30, y)] # Truncate the number of contacts at 30
 
 cat("First time participants:", nrow(dt[rep == 0]))
 cat("1-5 participations:", nrow(dt[between(rep, 1, 5)]))
