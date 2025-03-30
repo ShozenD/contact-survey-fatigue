@@ -50,10 +50,6 @@ dt <- merge(dt, nuts, by = "NUTS_NAME", all.x = TRUE)
 dt[is.na(y_hh), y_hh := 0]
 dt[is.na(y_nhh), y_nhh := 0]
 
-# Day of week
-dt[, dow := lubridate::wday(date, label = TRUE)]
-dt[, dow := ifelse(dow %in% c("Sat", "Sun"), "Weekend", "Weekday")]
-
 # Urban type
 dt  <- dt[, urbn_type := case_when(URBN_TYPE == "1" ~ "Urban",
                                    URBN_TYPE == "2" ~ "Intermediate",
@@ -71,29 +67,7 @@ dt[, hh_p_incl_0 := NULL]
 dt <- dt[!is.na(age_strata) & !is.na(gender) & age_strata != "85+"] # Remove missing and 85+ age group
 dt <- preproc_age_job(dt)
 
-cat("First time participants:", nrow(dt[rep == 0]))
-cat("1-5 participations:", nrow(dt[between(rep, 1, 5)]))
-cat("6-10 participations:", nrow(dt[between(rep, 6, 10)]))
-cat("11-15 participations:", nrow(dt[rep == 11]))
-
-# ===== Create design matrix =====
-make_dummy_matrix <- function(data, variable, include = NULL, ...) {
-  data <- setDT(data)
-  data <- data[, ..variable]
-  data <- fastDummies::dummy_cols(data,
-                                  select_columns = variable,
-                                  remove_selected_columns = TRUE,
-                                  omit_colname_prefix = TRUE,
-                                  ...)
-  if (!is.null(include)) data <- data[, ..include]
-  data <- as.matrix(data)
-  data[is.na(data)] <- 0
-
-  return(data)
-}
-
 ## Prepare participant characteristics X
-
 # Fixed effects
 X_age <- make_dummy_matrix(dt, "age_strata")
 X_hh <- make_dummy_matrix(dt, "hh_size")

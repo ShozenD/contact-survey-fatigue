@@ -10,11 +10,14 @@ cat > "$OUT_PATH/fullproc_longit.pbs" <<EOF
 #PBS -l walltime=8:00:00
 #PBS -l select=1:ncpus=6:ompthreads=1:mem=50gb
 
-module load anaconda3/personal
+eval "\$(~/miniforge3/bin/conda shell.bash hook)"
 source activate contact-survey-fatigue
 
 # Move into repository
 cd $REPO_PATH
+
+# Preprocess data
+Rscript scripts/preproc_wave_3_12.R
 
 # Run Stan model
 Rscript scripts/run_stan_longit.R --config "$CONFIG_FILE"

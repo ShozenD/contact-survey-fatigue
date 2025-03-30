@@ -23,15 +23,47 @@ functions {
 
     return L * mu;
   }
+
+  matrix sum_zero_map(int n) {
+    matrix[n, n-1] A;
+    A[1:n-1, 1:n-1] = diag_matrix(ones_vector(n-1));
+    A[n,:] = -1.0*ones_row_vector(n-1);
+
+    // QR decomposition (Gram Schmidt)
+    return qr_thin_Q(A);
+  }
+
+  vector sum_zero_std_normal(vector x) {
+    int n = rows(x) + 1;
+    vector[n] ones = ones_vector(n);
+    matrix[n, n] In = identity_matrix(n);
+    matrix[n, n] P = In - 1./(n*1.) * ones * ones';
+    P = P * (n / (n-1.0));
+    matrix[n, n-1] M = sum_zero_map(n);
+    matrix[n-1, n-1] S = M' * P * M;
+    matrix[n-1, n-1] L = cholesky_decompose(S);
+    return M * (L * x);
+  }
 }
 
 data {
-  int<lower=0> N;            // number of observations
-  int<lower=0> P;            // number of fixed effects
-  matrix[N, P] X;            // fixed effects design matrix
-  array[N] int<lower=1> wid; // wave index
-  array[N] int<lower=1> rid; // repeat index
-  array[N] int<lower=0> y;   // contact counts
+  int<lower=0> N;
+
+  int<lower=0> P_age;
+  int<lower=0> P_hh;
+  int<lower=0> P_gender;
+  int<lower=0> P_job;
+  int<lower=0> P_urbn;
+  
+  matrix[N, P_age] X_age;
+  matrix[N, P_hh] X_hh;
+  matrix[N, P_gender] X_gender;
+  matrix[N, P_job] X_job;
+  matrix[N, P_urbn] X_urbn;
+
+  array[N] int<lower=1> wid; // Wave index
+  array[N] int<lower=1> rid; // Repeat index
+  array[N] int<lower=0> y;   // Contact counts
 }
 
 transformed data{
@@ -45,9 +77,15 @@ transformed data{
 }
 
 parameters {
-  real alpha;                       // Intercept
-  vector[P] beta;             // Fixed effect coefficients
-  real<lower=0> reciprocal_phi;     // Reciprocal of the dispersion parameter
+  real beta0;                   // intercept
+
+  vector[P_age-1] z_age;
+  vector[P_hh-1] z_hh;
+  vector[P_gender-1] z_gender;
+  vector[P_job-1] z_job;
+  vector[P_urbn-1] z_urbn;
+
+  real<lower=0> inv_varphi; // Reciprocal of the dispersion parameter
 
   // Time varying coefficients
   vector[W] gp_time_mu;
@@ -60,33 +98,50 @@ parameters {
 }
 
 transformed parameters {
+  // Fixed effects
+  vector[P_age] beta_age = sum_zero_std_normal(z_age);
+  vector[P_hh] beta_hh = sum_zero_std_normal(z_hh);
+  vector[P_gender] beta_gender = sum_zero_std_normal(z_gender);
+  vector[P_job] beta_job = sum_zero_std_normal(z_job);
+  vector[P_urbn] beta_urbn = sum_zero_std_normal(z_urbn);
+
   vector[W] tau = gp_matern32(wstd, gp_time_mu, gp_time_scale, gp_time_lenscale);
 
   vector[R] rho;
   rho[1] = 0;
   rho[2:R] = gp_se(rstd, gp_repeat_mu, gp_repeat_scale, gp_repeat_lenscale); // Gaussian process
 
-  vector[N] log_lambda = alpha + X*beta + tau[wid] + rho[rid];
+  vector[N] log_lambda = beta0
+                      // Fixed effects
+                      + X_age*beta_age
+                      + X_hh*beta_hh
+                      + X_gender*beta_gender
+                      + X_job*beta_job
+                      + X_urbn*beta_urbn
+                      // Time effect
+                      + tau[wid]
+                      + rho[rid];
 }
 
 model {
-  /* ===== Model Priors ===== */
-  target += normal_lupdf(alpha | 0, 10);
-  target += normal_lupdf(beta | 0, 1);
-  target += exponential_lupdf(reciprocal_phi | 1);
-
-  // Time effect GP priors
-  target += normal_lupdf(gp_time_mu | 0, 1);
-  target += inv_gamma_lupdf(gp_time_scale | 5, 1);
-  target += inv_gamma_lupdf(gp_time_lenscale | 5, 1);
-
-  // Repeat effect GP priors
-  target += normal_lupdf(gp_repeat_mu | 0, 1);
-  target += gamma_lupdf(gp_repeat_scale | 5, 1);
-  target += gamma_lupdf(gp_repeat_lenscale | 5, 1);
-
-  // likelihood
-  target += neg_binomial_2_log_lupmf(y | log_lambda, 1.0/reciprocal_phi);
+  target += normal_lupdf(beta0 | 0, 10)
+          // Fixed effects priors
+          + normal_lupdf(z_age | 0, 1)
+          + normal_lupdf(z_hh | 0, 1)
+          + normal_lupdf(z_gender | 0, 1)
+          + normal_lupdf(z_job | 0, 1)
+          + normal_lupdf(z_urbn | 0, 1)
+          + exponential_lupdf(inv_varphi | 1)
+          // Gaussian process prior
+          + normal_lupdf(gp_time_mu | 0, 1)
+          + inv_gamma_lupdf(gp_time_scale | 5, 1)
+          + inv_gamma_lupdf(gp_time_lenscale | 5, 1)
+          // Survey fatigue effect prior
+          + normal_lupdf(gp_repeat_mu | 0, 1)
+          + gamma_lupdf(gp_repeat_scale | 5, 1)
+          + gamma_lupdf(gp_repeat_lenscale | 5, 1)
+          // likelihood
+          + neg_binomial_2_log_lupmf(y | log_lambda, 1.0/inv_varphi);
 }
 
 generated quantities {
@@ -94,7 +149,7 @@ generated quantities {
   array[N] real log_lik; // log likelihood
 
   for (n in 1:N) {
-    y_rep[n] = neg_binomial_2_log_rng(log_lambda[n], 1.0/reciprocal_phi);
-    log_lik[n] = neg_binomial_2_log_lpmf(y[n] | log_lambda[n], 1.0/reciprocal_phi);
+    y_rep[n] = neg_binomial_2_log_rng(log_lambda[n], 1.0/inv_varphi);
+    log_lik[n] = neg_binomial_2_log_lpmf(y[n] | log_lambda[n], 1.0/inv_varphi);
   }
 }

@@ -137,7 +137,7 @@ model {
   // Prior for the dispersion
          + exponential_lupdf(inv_varphi | 1)
   // Priors for the repeat effect terms
-         + normal_lupdf(gamma | hat_gamma, 0.3)
+         + normal_lupdf(gamma | hat_gamma, 0.5)
          + normal_lupdf(zeta  | hat_zeta,  0.1)
          + normal_lupdf(eta   | hat_eta,   0.1)
   // GP hyperparameter priors
