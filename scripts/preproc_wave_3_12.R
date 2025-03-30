@@ -71,12 +71,17 @@ dt <- dt[!is.na(age_strata) & !is.na(gender) & age_strata != "85+"] # Remove mis
 dt <- preproc_age_job(dt)
 
 ## Prepare participant characteristics X
+dt$age_strata <- relevel(dt$age_strata, ref = "45-54")
+dt$hh_size <- factor(dt$hh_size, levels = c("3", "1", "2", "4", "5+"))
+dt$gender <- relevel(dt$gender, ref = "Male")
+
 # Fixed effects
-X_age <- make_dummy_matrix(dt, "age_strata")
-X_hh <- make_dummy_matrix(dt, "hh_size")
-X_gender <- make_dummy_matrix(dt, "gender")
-X_job <- make_dummy_matrix(dt, "job")
-X_urbn <- make_dummy_matrix(dt, "urbn_type", include = c("Urban", "Intermediate"))
+X_age <- make_dummy_matrix(dt, "age_strata", remove_first_dummy = TRUE) # 45-54 is the reference level
+X_hh <- make_dummy_matrix(dt, "hh_size", remove_first_dummy = TRUE)     # 3 person is the reference level
+X_gender <- make_dummy_matrix(dt, "gender", include = "Female")         # Male is the reference level
+X_job <- make_dummy_matrix(dt, "job", remove_first_dummy = TRUE)        # Full-time employed is the reference level
+print(colnames(X_job))
+X_urbn <- make_dummy_matrix(dt, "urbn_type", include = "Intermediate")  # Urban is the reference level
 
 # ===== Make Stan data =====
 wid <- dt$wave - min(dt$wave) + 1
