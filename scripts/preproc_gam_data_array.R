@@ -34,10 +34,10 @@ dt_cnt <- preproc_gam_data(config$data$wave, dt_part, dt_hh, dt_nhh, nuts)
 dt_cnt_subset <- dt_cnt[`rep` <= REPEAT]
 
 # ===== Prepare participant characteristics X =====
-X_sex <- make_dummy_matrix(dt_cnt_subset, "gender")
-X_hhsize <- make_dummy_matrix(dt_cnt_subset, "hh_size")
-X_job <- make_dummy_matrix(dt_cnt_subset, "job")
-X_urbn <- make_dummy_matrix(dt_cnt_subset, "urbn_type", c("intermediate", "urban"))
+X_sex <- make_dummy_matrix(dt_cnt_subset, "gender", "Female") # Reference: Male
+X_hhsize <- make_dummy_matrix(dt_cnt_subset, "hh_size", c("1", "2", "4", "5+")) # Reference: 3
+X_job <- make_dummy_matrix(dt_cnt_subset, "job", remove_first_dummy = TRUE) # Reference: full_time
+X_urbn <- make_dummy_matrix(dt_cnt_subset, "urbn_type", c("intermediate")) # Reference: urban
 
 # ===== Prepare repeat effects dummy =====
 select_age_strata <- unique(dt_cnt_subset$age_strata)

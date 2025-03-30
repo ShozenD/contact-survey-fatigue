@@ -15,6 +15,7 @@ make_dummy_matrix <- function(data, variable, include = NULL, ...) {
                                   ignore_na = TRUE,
                                   remove_selected_columns = TRUE,
                                   omit_colname_prefix = TRUE,
+                                  ignore_na = TRUE,
                                   ...)
   if (!is.null(include)) data <- data[, ..include]
   data <- as.matrix(data)
