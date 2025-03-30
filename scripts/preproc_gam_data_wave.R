@@ -42,13 +42,13 @@ for (w in 1:MAX_WAVE) {
 
   # ===== Prepare repeat effects dummy =====
   select_age_strata <- unique(dt_cnt$age_strata)
-  select_age_strata <- select_age_strata[!(select_age_strata %in% c("35-44", "70-74"))]
+  select_age_strata <- select_age_strata[!is.na(select_age_strata) & !(select_age_strata %in% c("35-44", "70-74"))]
   Z_age <- make_dummy_matrix(dt_cnt, "age_strata", select_age_strata)
   Z_sex <- make_dummy_matrix(dt_cnt, "gender", "Female")
   Z_hhsize <- make_dummy_matrix(dt_cnt, "hh_size", "1")
 
   select_job <- unique(dt_cnt$job)
-  select_job <- select_job[!(select_job %in% c("retired", NA))]
+  select_job <- select_job[!is.na(select_job) & !(select_job %in% "retired")]
   Z_job <- make_dummy_matrix(dt_cnt, "job", select_job)
   Z_urbn <- make_dummy_matrix(dt_cnt, "urbn_type", c("rural", "intermediate"))
   Z <- cbind(Z_age, Z_sex, Z_hhsize, Z_job)

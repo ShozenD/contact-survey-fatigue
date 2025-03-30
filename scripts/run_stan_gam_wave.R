@@ -26,18 +26,35 @@ for (w in 1:33) {
   stan_data <- read_rds(file.path("data/silver", fname))
 
   # Load the fitted model for the previous wave
-  if (w == 1) {
-    stan_data$hatBeta <- rep(0, stan_data$P)
-    stan_data$hatGamma <- rep(config$model$hatGamma, stan_data$Q)
-    stan_data$hatZeta <- rep(config$model$hatZeta, stan_data$Q)
-    stan_data$hatEta <- rep(config$model$hatEta, stan_data$Q)
+  if (w == 1) { # First wave
+
+    # Fixed effects
+    stan_data$hat_z_sex <- rep(0, stan_data$P_sex - 1)
+    stan_data$hat_z_hhsize <- rep(0, stan_data$P_hhsize - 1)
+    stan_data$hat_z_job <- rep(0, stan_data$P_job - 1)
+    stan_data$hat_z_urbn <- rep(0, stan_data$P_urbn - 1)
+
+    # Survey fatigue effects
+    stan_data$hat_gamma <- rep(config$model$hat_gamma, stan_data$Q)
+    stan_data$hat_zeta <- rep(config$model$hat_zeta, stan_data$Q)
+    stan_data$hat_eta <- rep(config$model$hat_eta, stan_data$Q)
+    
   } else {
+
     fname <- paste0(paste(config$experiment_name, w - 1, sep = "_"), ".rds")
     fit <- read_rds(file.path(config$out_dir, "stan_fits", fname))
-    stan_data$hatBeta <- fit$summary("beta", "mean")$mean
-    stan_data$hatGamma <- fit$summary("gamma", "mean")$mean
-    stan_data$hatZeta <- fit$summary("zeta", "mean")$mean
-    stan_data$hatEta <- fit$summary("eta", "mean")$mean
+
+    # Fixed effects
+    stan_data$hat_z_sex <- fit$summary("z_sex", "mean")$mean
+    stan_data$hat_z_hhsize <- fit$summary("z_hhsize", "mean")$mean
+    stan_data$hat_z_job <- fit$summary("z_job", "mean")$mean
+    stan_data$hat_z_urbn <- fit$summary("z_urbn", "mean")$mean
+    
+    # Survey fatigue effects
+    stan_data$hat_gamma <- fit$summary("gamma", "mean")$mean
+    stan_data$hat_zeta <- fit$summary("zeta", "mean")$mean
+    stan_data$hat_eta <- fit$summary("eta", "mean")$mean
+
   }
 
   # Save stan_data for convenient access from different scripts

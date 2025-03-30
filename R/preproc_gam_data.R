@@ -76,8 +76,10 @@ preproc_gam_data <- function(w, part, hh, nhh, nuts) {
   # Merge the y vector with the participant data
   part <- merge(part, cnt_sum, by = "new_id")
 
-  # Remove extreme outliers
-  part[, y := ifelse(y > 30, 30, y)]
+  # Truncate at the 99th quantile
+  q99 <- quantile(part$y, probs = 0.99, na.rm = TRUE)
+  cat("Truncating at the 99th percentile: ", q99, "\n")
+  part[, y := ifelse(y > q99, q99, y)]
 
   return(part)
 }

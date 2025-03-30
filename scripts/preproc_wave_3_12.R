@@ -58,6 +58,11 @@ dt  <- dt[, urbn_type := case_when(URBN_TYPE == "1" ~ "Urban",
 # Calculate the total number of contacts
 dt[, y := y_hh + y_nhh + y_grp]
 
+# Truncate the number of contacts at the 99th percentile
+q_99 <- quantile(dt$y, 0.99, na.rm = TRUE)
+cat("Truncating at the 99th percentile: ", q_99, "\n")
+dt[, y := pmin(y, q_99)]
+
 # Truncate household size at 4 (more than 90% of all households)
 dt[, hh_size := ifelse(hh_p_incl_0 > 5, 5, hh_p_incl_0)]
 dt[, hh_p_incl_0 := NULL]

@@ -12,6 +12,7 @@ make_dummy_matrix <- function(data, variable, include = NULL, ...) {
   data <- data[, ..variable]
   data <- fastDummies::dummy_cols(data,
                                   select_columns = variable,
+                                  ignore_na = TRUE,
                                   remove_selected_columns = TRUE,
                                   omit_colname_prefix = TRUE,
                                   ...)
