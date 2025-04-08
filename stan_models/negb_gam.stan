@@ -1,26 +1,4 @@
 functions {
-  // ===== Sum to zero priors =====
-  matrix sum_zero_map(int n) {
-    matrix[n, n-1] A;
-    A[1:n-1, 1:n-1] = diag_matrix(ones_vector(n-1));
-    A[n,:] = -1.0*ones_row_vector(n-1);
-
-    // QR decomposition (Gram Schmidt)
-    return qr_thin_Q(A);
-  }
-  
-  vector sum_zero_std_normal(vector x) {
-    int n = rows(x) + 1;
-    vector[n] ones = ones_vector(n);
-    matrix[n, n] In = identity_matrix(n);
-    matrix[n, n] P = In - 1./(n*1.) * ones * ones';
-    P = P * (n / (n-1.0));
-    matrix[n, n-1] M = sum_zero_map(n);
-    matrix[n-1, n-1] S = M' * P * M;
-    matrix[n-1, n-1] L = cholesky_decompose(S);
-    return M * (L * x);
-  }
-
   matrix Hill(vector r, vector gamma, vector zeta, vector eta) {
     int Q = rows(gamma);
     int R = rows(r);
@@ -92,10 +70,10 @@ parameters {
   real alpha;
 
   // Participant covariate parameters
-  vector[P_sex-1] z_sex;  
-  vector[P_hhsize-1] z_hhsize;
-  vector[P_job-1] z_job;
-  vector[P_urbn-1] z_urbn;
+  vector[P_sex] beta_sex;  
+  vector[P_hhsize] beta_hhsize;
+  vector[P_job] beta_job;
+  vector[P_urbn] beta_urbn;
 
   // Reciprocal of the dispersion parameter
   real<lower=0> inv_varphi;
@@ -112,13 +90,12 @@ parameters {
 }
 
 transformed parameters {
-  vector[P_sex] beta_sex = sum_zero_std_normal(z_sex);
-  vector[P_hhsize] beta_hhsize = sum_zero_std_normal(z_hhsize);
-  vector[P_job] beta_job = sum_zero_std_normal(z_job);
-  vector[P_urbn] beta_urbn = sum_zero_std_normal(z_urbn);
-
   vector[A] log_m = alpha + hsgp(zb, phi, sigma, lenscale, L);
-  vector[N] log_lambda = log_m[aid] + X_sex*beta_sex + X_hhsize*beta_hhsize + X_job*beta_job + X_urbn*beta_urbn;
+  vector[N] log_lambda = log_m[aid]
+                       + X_sex*beta_sex
+                       + X_hhsize*beta_hhsize
+                       + X_job*beta_job
+                       + X_urbn*beta_urbn;
 
   matrix[Q, R] rho = Hill(r, gamma, zeta, eta);
   for (i in 1:N) {
@@ -128,24 +105,24 @@ transformed parameters {
 
 model {
   // Prior for the baseline parameter
-  target += normal_lupdf(alpha | 0, 10)
+  target += normal_lupdf(alpha | 0, 5)
   // Priors for the participant covariates
-         + normal_lupdf(z_sex    | 0, 1)
-         + normal_lupdf(z_hhsize | 0, 1)
-         + normal_lupdf(z_job    | 0, 1)
-         + normal_lupdf(z_urbn   | 0, 1)
+  + normal_lupdf(beta_sex    | 0, 1)
+  + normal_lupdf(beta_hhsize | 0, 1)
+  + normal_lupdf(beta_job    | 0, 1)
+  + normal_lupdf(beta_urbn   | 0, 1)
   // Prior for the dispersion
-         + exponential_lupdf(inv_varphi | 1)
+  + exponential_lupdf(inv_varphi | 1)
   // Priors for the repeat effect terms
-         + normal_lupdf(gamma | hat_gamma, 0.5)
-         + normal_lupdf(zeta  | hat_zeta,  0.1)
-         + normal_lupdf(eta   | hat_eta,   0.1)
+  + normal_lupdf(gamma | hat_gamma, 0.3)
+  + normal_lupdf(zeta  | hat_zeta,  0.3)
+  + normal_lupdf(eta   | hat_eta,   0.3)
   // GP hyperparameter priors
-         + inv_gamma_lupdf(lenscale | 5, 1)
-         + inv_gamma_lupdf(sigma    | 5, 1)
-         + normal_lupdf(zb         | 0, 1)
+  + inv_gamma_lupdf(lenscale | 5, 5)
+  + inv_gamma_lupdf(sigma    | 5, 5)
+  + normal_lupdf(zb          | 0, 1)
   // Likelihood
-         + neg_binomial_2_log_lupmf(y | log_lambda, 1 / inv_varphi);
+  + neg_binomial_2_log_lupmf(y | log_lambda, 1 / inv_varphi);
 }
 
 generated quantities {

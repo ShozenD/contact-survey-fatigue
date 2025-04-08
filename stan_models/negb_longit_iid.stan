@@ -77,7 +77,7 @@ transformed parameters {
 }
 
 model {
-  target += normal_lupdf(beta0 | 0, 10)
+  target += normal_lupdf(beta0 | 0, 5)
           // Fixed effects priors
           + normal_lupdf(beta_age | 0, 1)
           + normal_lupdf(beta_hh | 0, 1)
@@ -87,8 +87,8 @@ model {
           + exponential_lupdf(inv_varphi | 1)
           // Gaussian process prior
           + normal_lupdf(gp_time_mu | 0, 1)
-          + inv_gamma_lupdf(gp_time_scale | 5, 1)
-          + inv_gamma_lupdf(gp_time_lenscale | 5, 1)
+          + inv_gamma_lupdf(gp_time_scale | 5, 5)
+          + inv_gamma_lupdf(gp_time_lenscale | 5, 5)
           // Survey fatigue effect prior
           + normal_lupdf(rbeta | 0, 1)
           // likelihood
