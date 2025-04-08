@@ -47,21 +47,32 @@ if (!str_detect(config$model$name, "_noadj")) { # If the model adjust for the re
 }
 
 # Extract posterior samples of tau (time effect)
-draws <- fit$draws(c("beta0", "tau", "beta_gender", "beta_age"), format = "matrix")
+draws <- fit$draws(c("beta0", "tau", "beta_gender", "beta_age", "beta_job"), format = "matrix")
 
-marginal_cint <- function(draws, variable, label) {
-  x <- sweep(draws[, "beta0"], 1, draws[,"beta_gender[1]"], "+") # Calculate for males
-  x <- sweep(x, 1, draws[,variable], "+")
+marginal_cint <- function(draws, params = NULL, label) {
+  x <- sweep(draws[, "beta0"], 1, draws[, "beta_gender[1]"], "+") # Calculate for women
+  if (!is.null(params)) {
+    for (i in seq_along(params)) {
+      x <- sweep(x, 1, draws[, params[i]], "+")
+    }
+  }
   x <- sweep(draws[, str_detect(colnames(draws), "tau")], 1, x, "+")
   df <- summarise_draws(x, ~quantile2(exp(.x), probs = c(.025, .5, .975)))
   df$label <- label
-
+  
   return(df)
 }
 
-df_mcint <- marginal_cint(draws, "beta_age[9]", "Male, 45-54")
-df_mcint <- rbind(df_mcint, marginal_cint(draws, "beta_age[13]", "Male, 75-79"))
-df_mcint <- rbind(df_mcint, marginal_cint(draws, "beta_age[3]", "Male, student [6-9]"))
+df_mcint <- marginal_cint(draws,
+                          label = "Women, 45-54, HH size 3, Full-time, Urban")
+df_mcint <- rbind(df_mcint, 
+                  marginal_cint(draws,
+                                params = c("beta_age[12]", "beta_job[4]"),
+                                label = "Women, 75-79, Household size 3, Retired, Urban"))
+df_mcint <- rbind(df_mcint,
+                  marginal_cint(draws,
+                                params = "beta_age[3]",
+                                label = "Women, student [6-9], Household size 3, Urban"))
 saveRDS(df_mcint, file.path(out_dir, "marginal_contact_intensity.rds"))
 
 # Extract fixed effects
