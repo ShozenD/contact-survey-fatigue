@@ -41,9 +41,10 @@ for (w in 1:MAX_WAVE) {
   X_urbn <- make_dummy_matrix(dt_cnt, "urbn_type", c("intermediate")) # Reference: urban
 
   # ===== Prepare repeat effects dummy =====
-  select_age_strata <- unique(dt_cnt$age_strata)
+  select_age_strata <- levels(dt_cnt$age_strata)
   select_age_strata <- select_age_strata[!(select_age_strata %in% c("35-44", "70-74", NA))]
-  Z_age <- make_dummy_matrix(dt_cnt, "age_strata", select_age_strata)
+  select_age_strata <- paste0("age_strata_", select_age_strata)
+  Z_age <- as.matrix(make_design_matrix(dt_cnt, "age_strata")[,..select_age_strata])
   Z_sex <- make_dummy_matrix(dt_cnt, "gender", "Female")
   Z_hhsize <- make_dummy_matrix(dt_cnt, "hh_size", "1")
 
