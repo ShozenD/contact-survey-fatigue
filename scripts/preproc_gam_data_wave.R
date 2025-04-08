@@ -35,23 +35,23 @@ for (w in 1:MAX_WAVE) {
   dt_cnt <- preproc_gam_data(w, dt_part, dt_hh, dt_nhh, nuts)
 
   # ===== Make dummy variables =====
-  X_sex <- make_dummy_matrix(dt_cnt, "gender")
-  X_hhsize <- make_dummy_matrix(dt_cnt, "hh_size")
-  X_job <- make_dummy_matrix(dt_cnt, "job")
-  X_urbn <- make_dummy_matrix(dt_cnt, "urbn_type", c("intermediate", "urban"))
+  X_sex <- make_dummy_matrix(dt_cnt, "gender", "Female") # Reference: Male
+  X_hhsize <- make_dummy_matrix(dt_cnt, "hh_size", c("1", "2", "4", "5+")) # Reference: 3
+  X_job <- make_dummy_matrix(dt_cnt, "job", remove_first_dummy = TRUE) # Reference: full_time
+  X_urbn <- make_dummy_matrix(dt_cnt, "urbn_type", c("intermediate")) # Reference: urban
 
   # ===== Prepare repeat effects dummy =====
   select_age_strata <- unique(dt_cnt$age_strata)
-  select_age_strata <- select_age_strata[!is.na(select_age_strata) & !(select_age_strata %in% c("35-44", "70-74"))]
+  select_age_strata <- select_age_strata[!(select_age_strata %in% c("35-44", "70-74"))]
   Z_age <- make_dummy_matrix(dt_cnt, "age_strata", select_age_strata)
   Z_sex <- make_dummy_matrix(dt_cnt, "gender", "Female")
   Z_hhsize <- make_dummy_matrix(dt_cnt, "hh_size", "1")
 
   select_job <- unique(dt_cnt$job)
-  select_job <- select_job[!is.na(select_job) & !(select_job %in% "retired")]
+  select_job <- select_job[!(select_job %in% c("retired", NA))]
   Z_job <- make_dummy_matrix(dt_cnt, "job", select_job)
   Z_urbn <- make_dummy_matrix(dt_cnt, "urbn_type", c("rural", "intermediate"))
-  Z <- cbind(Z_age, Z_sex, Z_hhsize, Z_job)
+  Z <- cbind(Z_age, Z_sex, Z_hhsize, Z_job, Z_urbn)
 
   # ===== Prepare indexes =====
   aid <- dt_cnt$imp_age + 1

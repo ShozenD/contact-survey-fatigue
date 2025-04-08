@@ -76,10 +76,8 @@ preproc_gam_data <- function(w, part, hh, nhh, nuts) {
   # Merge the y vector with the participant data
   part <- merge(part, cnt_sum, by = "new_id")
 
-  # Truncate at the 99th quantile
-  q99 <- quantile(part$y, probs = 0.99, na.rm = TRUE)
-  cat("Truncating at the 99th percentile: ", q99, "\n")
-  part[, y := ifelse(y > q99, q99, y)]
+  # Truncate the contacts at 50 quantile
+  part[, y := ifelse(y > 50, 50, y)]
 
   return(part)
 }

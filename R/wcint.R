@@ -35,8 +35,8 @@ wcint_age_gender <- function(age_set, draws_log_mu, draws_beta_sex) {
   log_mu_age <- draws_log_mu[, age_set + 1]
 
   # Add gender effects and log weights
-  log_mu_f <- sweep(log_mu_age + draws_beta_sex[, 2], 2, w_af, `+`)
-  log_mu_m <- sweep(log_mu_age + draws_beta_sex[, 1], 2, w_am, `+`)
+  log_mu_f <- sweep(log_mu_age + draws_beta_sex[, 1], 2, w_af, `+`)
+  log_mu_m <- sweep(log_mu_age, 2, w_am, `+`)
 
   # Combine and return
   log(rowSums(exp(log_mu_f) + exp(log_mu_m)))
@@ -54,7 +54,11 @@ wcint_hhsize <- function(draws_log_mu, draws_beta_hhsize) {
 
   # Calculate log_mu for different household sizes
   log_mu_list <- lapply(1:5, function(i){
-    return(draws_log_mu + draws_beta_hhsize[,i] + log(hh_weights[i]))
+    if (i == 3) { # Reference group
+      return(draws_log_mu + log(hh_weights[i]))
+    } else {
+      return(draws_log_mu + draws_beta_hhsize[,i] + log(hh_weights[i]))
+    }
   })
   log_mu <- log(Reduce(`+`, lapply(log_mu_list, exp)))
 
