@@ -29,10 +29,10 @@ for (w in 1:33) {
   if (w == 1) { # First wave
 
     # Fixed effects
-    stan_data$hat_z_sex <- rep(0, stan_data$P_sex - 1)
-    stan_data$hat_z_hhsize <- rep(0, stan_data$P_hhsize - 1)
-    stan_data$hat_z_job <- rep(0, stan_data$P_job - 1)
-    stan_data$hat_z_urbn <- rep(0, stan_data$P_urbn - 1)
+    stan_data$hat_beta_sex <- rep(0, stan_data$P_sex)
+    stan_data$hat_beta_hhsize <- rep(0, stan_data$P_hhsize)
+    stan_data$hat_beta_job <- rep(0, stan_data$P_job)
+    stan_data$hat_beta_urbn <- rep(0, stan_data$P_urbn)
 
     # Survey fatigue effects
     stan_data$hat_gamma <- rep(config$model$hat_gamma, stan_data$Q)
@@ -45,10 +45,10 @@ for (w in 1:33) {
     fit <- read_rds(file.path(config$out_dir, "stan_fits", fname))
 
     # Fixed effects
-    stan_data$hat_z_sex <- fit$summary("z_sex", "mean")$mean
-    stan_data$hat_z_hhsize <- fit$summary("z_hhsize", "mean")$mean
-    stan_data$hat_z_job <- fit$summary("z_job", "mean")$mean
-    stan_data$hat_z_urbn <- fit$summary("z_urbn", "mean")$mean
+    stan_data$hat_beta_sex <- fit$summary("beta_sex", "mean")$mean
+    stan_data$hat_beta_hhsize <- fit$summary("beta_hhsize", "mean")$mean
+    stan_data$hat_beta_job <- fit$summary("beta_job", "mean")$mean
+    stan_data$hat_beta_urbn <- fit$summary("beta_urbn", "mean")$mean
     
     # Survey fatigue effects
     stan_data$hat_gamma <- fit$summary("gamma", "mean")$mean
