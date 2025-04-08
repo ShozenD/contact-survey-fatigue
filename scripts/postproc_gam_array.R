@@ -43,14 +43,12 @@ wm <- w[gender == "Male", weight]
 # Extract draws
 log_m <- fit$draws("log_m", format = "matrix")
 beta_sex <- fit$draws("beta_sex", format = "matrix")
-beta_m <- beta_sex[,1]
-beta_f <- beta_sex[,2]
+beta_f <- beta_sex[,1]
 
 # Compute weighted female and male values
 f_vals <- sweep(log_m, 1, beta_f, "+")
 f_vals <- sweep(f_vals, 2, log(wf), "+")
-m_vals <- sweep(log_m, 1, beta_m, "+")
-m_vals <- sweep(m_vals, 2, log(wm), "+")
+m_vals <- sweep(log_m, 2, log(wm), "+")
 
 # Combine
 draws_log_m <- log(exp(f_vals) + exp(m_vals))
@@ -59,7 +57,16 @@ draws_log_m <- log(exp(f_vals) + exp(m_vals))
 w <- setDT(read_rds("data/population_weights/hhsize.rds"))
 beta_hhsize <- fit$draws("beta_hhsize", format = "matrix")
 hhsize_draws <- lapply(seq_len(nrow(w)), function(i) {
-  sweep(draws_log_m, 1, beta_hhsize[,i], "+") + log(w$weight[i])
+  adj <- if (i == 3) {
+    0  # reference category: no adjustment
+  } else if (i < 3) {
+    beta_hhsize[, i]
+  } else {
+    beta_hhsize[, i - 1]
+  }
+  # Apply adjustment only if it is not the reference category
+  draws_adj <- if (i == 3) draws_log_m else sweep(draws_log_m, 1, adj, "+")
+  draws_adj + log(w$weight[i])
 })
 draws_log_m <- log(Reduce(`+`, lapply(hhsize_draws, exp)))
 

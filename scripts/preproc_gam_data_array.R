@@ -50,7 +50,7 @@ select_job <- unique(dt_cnt_subset$job)
 select_job <- select_job[!(select_job %in% c("retired", NA))]
 Z_job <- make_dummy_matrix(dt_cnt_subset, "job", select_job)
 Z_urbn <- make_dummy_matrix(dt_cnt_subset, "urbn_type", c("rural", "intermediate"))
-Z <- cbind(Z_age, Z_sex, Z_hhsize, Z_job)
+Z <- cbind(Z_age, Z_sex, Z_hhsize, Z_job, Z_urbn)
 
 # ===== Prepare indexes =====
 aid <- dt_cnt_subset$imp_age + 1
