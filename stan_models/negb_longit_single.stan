@@ -8,27 +8,6 @@ functions {
 
     return L * mu;
   }
-
-  matrix sum_zero_map(int n) {
-    matrix[n, n-1] A;
-    A[1:n-1, 1:n-1] = diag_matrix(ones_vector(n-1));
-    A[n,:] = -1.0*ones_row_vector(n-1);
-
-    // QR decomposition (Gram Schmidt)
-    return qr_thin_Q(A);
-  }
-
-  vector sum_zero_std_normal(vector x) {
-    int n = rows(x) + 1;
-    vector[n] ones = ones_vector(n);
-    matrix[n, n] In = identity_matrix(n);
-    matrix[n, n] P = In - 1./(n*1.) * ones * ones';
-    P = P * (n / (n-1.0));
-    matrix[n, n-1] M = sum_zero_map(n);
-    matrix[n-1, n-1] S = M' * P * M;
-    matrix[n-1, n-1] L = cholesky_decompose(S);
-    return M * (L * x);
-  }
 }
 
 data {
@@ -67,13 +46,18 @@ transformed data{
 }
 
 parameters {
-  real beta0; // intercept
+  // intercept
+  real beta0;
 
-  vector[P_age-1] z_age;
-  vector[P_hh-1] z_hh;
-  vector[P_gender-1] z_gender;
-  vector[P_job-1] z_job;
-  vector[P_urbn-1] z_urbn;
+  // Fixed effects
+  vector[P_age] beta_age;
+  vector[P_hh] beta_hh;
+  vector[P_gender] beta_gender;
+  vector[P_job] beta_job;
+  vector[P_urbn] beta_urbn;
+
+  // Overdispersion parameter
+  real<lower=0> inv_varphi;
 
   // Gaussian process parameters
   vector[W] gp_time_mu;
@@ -85,13 +69,6 @@ parameters {
 }
 
 transformed parameters {
-  // Fixed effects
-  vector[P_age] beta_age = sum_zero_std_normal(z_age);
-  vector[P_hh] beta_hh = sum_zero_std_normal(z_hh);
-  vector[P_gender] beta_gender = sum_zero_std_normal(z_gender);
-  vector[P_job] beta_job = sum_zero_std_normal(z_job);
-  vector[P_urbn] beta_urbn = sum_zero_std_normal(z_urbn);
-
   vector[W] tau = gp_matern32(wstd, gp_time_mu, gp_time_scale, gp_time_lenscale);
   vector[N] log_lambda = beta0
                       // Fixed effects
@@ -106,18 +83,18 @@ transformed parameters {
 }
 
 model {
-  target += normal_lupdf(beta0 | 0, 10)
+  target += normal_lupdf(beta0 | 0, 5)
           // Fixed effects priors
-          + normal_lupdf(z_age | 0, 1)
-          + normal_lupdf(z_hh | 0, 1)
-          + normal_lupdf(z_gender | 0, 1)
-          + normal_lupdf(z_job | 0, 1)
-          + normal_lupdf(z_urbn | 0, 1)
+          + normal_lupdf(beta_age | 0, 1)
+          + normal_lupdf(beta_hh | 0, 1)
+          + normal_lupdf(beta_gender | 0, 1)
+          + normal_lupdf(beta_job | 0, 1)
+          + normal_lupdf(beta_urbn | 0, 1)
           + exponential_lupdf(inv_varphi | 1)
           // Gaussian process prior
           + normal_lupdf(gp_time_mu | 0, 1)
-          + inv_gamma_lupdf(gp_time_scale | 5, 1)
-          + inv_gamma_lupdf(gp_time_lenscale | 5, 1)
+          + inv_gamma_lupdf(gp_time_scale | 5, 5)
+          + inv_gamma_lupdf(gp_time_lenscale | 5, 5)
           // Survey fatigue effect prior
           + normal_lupdf(rho | 0, 1)
           // likelihood

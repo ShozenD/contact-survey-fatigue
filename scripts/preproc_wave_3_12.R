@@ -60,7 +60,7 @@ dt[, y := y_hh + y_nhh + y_grp]
 
 # Truncate the number of contacts at the 99th percentile
 q_99 <- quantile(dt$y, 0.99, na.rm = TRUE)
-cat("Truncating at the 99th percentile: ", q_99, "\n")
+cat("Truncating at the 95th percentile: ", q_99, "\n")
 dt[, y := pmin(y, q_99)]
 
 # Truncate household size at 4 (more than 90% of all households)
@@ -80,7 +80,6 @@ X_age <- make_dummy_matrix(dt, "age_strata", remove_first_dummy = TRUE) # 45-54 
 X_hh <- make_dummy_matrix(dt, "hh_size", remove_first_dummy = TRUE)     # 3 person is the reference level
 X_gender <- make_dummy_matrix(dt, "gender", include = "Female")         # Male is the reference level
 X_job <- make_dummy_matrix(dt, "job", remove_first_dummy = TRUE)        # Full-time employed is the reference level
-print(colnames(X_job))
 X_urbn <- make_dummy_matrix(dt, "urbn_type", include = "Intermediate")  # Urban is the reference level
 
 # ===== Make Stan data =====
