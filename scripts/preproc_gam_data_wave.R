@@ -42,7 +42,7 @@ for (w in 1:MAX_WAVE) {
 
   # ===== Prepare repeat effects dummy =====
   select_age_strata <- unique(dt_cnt$age_strata)
-  select_age_strata <- select_age_strata[!(select_age_strata %in% c("35-44", "70-74"))]
+  select_age_strata <- select_age_strata[!(select_age_strata %in% c("35-44", "70-74", NA))]
   Z_age <- make_dummy_matrix(dt_cnt, "age_strata", select_age_strata)
   Z_sex <- make_dummy_matrix(dt_cnt, "gender", "Female")
   Z_hhsize <- make_dummy_matrix(dt_cnt, "hh_size", "1")
