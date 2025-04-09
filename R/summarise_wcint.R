@@ -173,8 +173,9 @@ summarise_wcint_fulltime <- function(
 ) {
   log_mu <- wcint_agh(19:64, draws_log_mu, draws_beta_sex, draws_beta_hhsize)
   
-  idx <- which(colnames(stan_data$X_job) == "full_time")
-  mu <- exp(log_mu + draws_beta_job[, idx])
+  # idx <- which(colnames(stan_data$X_job) == "full_time")
+  # mu <- exp(log_mu + draws_beta_job[, idx])
+  mu <- exp(log_mu)
   
   su <- setDT(
     summarise_draws(
@@ -389,7 +390,7 @@ summarise_wcint_female <- function(draws_log_mu, draws_beta_sex) {
   w <- w_af$weight
   
   # Adjust log contact intensity for the female effect and incorporate weights
-  log_mu_f <- sweep(draws_log_mu, 1, draws_beta_sex[, 2], "+")
+  log_mu_f <- sweep(draws_log_mu, 1, draws_beta_sex, "+")
   log_mu_f <- sweep(log_mu_f, 2, log(w), "+")
   
   # Calculate total weighted contact intensity for females
