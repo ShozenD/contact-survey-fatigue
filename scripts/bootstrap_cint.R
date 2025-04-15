@@ -64,7 +64,7 @@ dt_y[, y := y_grp + y_hh + y_nhh]
 dt_part <- merge(dt_part, dt_y, by = c("new_id", "wave"))
 
 # Truncate extreme values
-dt_part[, y := ifelse(y > 30, 30, y)]
+dt_part[, y := ifelse(y > 50, 50, y)]
 dt_cnt <- dt_part[, .(new_id, wave, imp_age, gender, hh_size, y)]
 
 # Load weights
@@ -97,6 +97,7 @@ weighted_mean <- function(data, indices) {
 # Bootstrap
 set.seed(0)
 dt_boot <- map_dfr(1:33, ~{
+  cat("Wave", .x, "\n")
   boot_res <- boot(data = dt_part[wave == .x], statistic = weighted_mean, R = 1000)
   ci <- boot.ci(boot_res, type = "norm")
   data.table(wave = .x, q50 = ci$t0, q2.5 = ci$normal[,2], q97.5 = ci$normal[,3])

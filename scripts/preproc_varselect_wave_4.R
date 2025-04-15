@@ -62,7 +62,7 @@ df_cnt <- fill_missing_child_ages(df_cnt)
 df_cnt <- mutate(df_cnt, dow = ifelse(lubridate::wday(date, week_start = 1) > 5, "Weekend", "Weekday"))
 
 df_cnt <- df_cnt %>%
-  # mutate(y = ifelse(y > 30, 30, y)) %>% # Remove extreme outliers
+  mutate(y = ifelse(y > 50, 50, y)) %>% # Remove extreme outliers
   filter(!is.na(gender)) %>% # Remove gender and job NAs
   filter(age_strata != "85+") # Remove people over 85 (small sample size)
 

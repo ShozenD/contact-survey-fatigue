@@ -25,6 +25,8 @@ for (w in 1:33) {
   fname <- paste0(paste(config$experiment_name, w, sep = "_"), ".rds")
   stan_data <- read_rds(file.path("data/silver", fname))
 
+  sum(negb_gam_wave_1$rid == 1)
+
   # Load the fitted model for the previous wave
   if (w == 1) { # First wave
 
@@ -38,7 +40,7 @@ for (w in 1:33) {
     stan_data$hat_gamma <- rep(config$model$hat_gamma, stan_data$Q)
     stan_data$hat_zeta <- rep(config$model$hat_zeta, stan_data$Q)
     stan_data$hat_eta <- rep(config$model$hat_eta, stan_data$Q)
-    
+
   } else {
 
     fname <- paste0(paste(config$experiment_name, w - 1, sep = "_"), ".rds")
@@ -49,7 +51,7 @@ for (w in 1:33) {
     stan_data$hat_beta_hhsize <- fit$summary("beta_hhsize", "mean")$mean
     stan_data$hat_beta_job <- fit$summary("beta_job", "mean")$mean
     stan_data$hat_beta_urbn <- fit$summary("beta_urbn", "mean")$mean
-    
+
     # Survey fatigue effects
     stan_data$hat_gamma <- fit$summary("gamma", "mean")$mean
     stan_data$hat_zeta <- fit$summary("zeta", "mean")$mean
