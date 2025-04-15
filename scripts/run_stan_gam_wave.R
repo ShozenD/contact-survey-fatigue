@@ -53,10 +53,24 @@ for (w in 1:33) {
     stan_data$hat_beta_urbn <- fit$summary("beta_urbn", "mean")$mean
 
     # Survey fatigue effects
-    stan_data$hat_gamma <- fit$summary("gamma", "mean")$mean
-    stan_data$hat_zeta <- fit$summary("zeta", "mean")$mean
-    stan_data$hat_eta <- fit$summary("eta", "mean")$mean
-
+    tryCatch({
+      # Fatigue adjusting models
+      stan_data$hat_gamma <- fit$summary("gamma", "mean")$mean
+      stan_data$hat_zeta <- fit$summary("zeta", "mean")$mean
+      stan_data$hat_eta <- fit$summary("eta", "mean")$mean
+    }, warning = function(w) {
+      cat(" WARNING: ", w$message, "\n")
+      NA
+    }, error = function(e){
+      cat(" MESSAGE:", e$message, "\n")
+      NA
+    }, finally = {
+      # Non-adjusting models
+      cat(" MESSAGE: ", "Survey fatigue effects not found. Assuming no-adjustment model\n")
+      stan_data$hat_gamma <- rep(config$model$hat_gamma, stan_data$Q)
+      stan_data$hat_zeta <- rep(config$model$hat_zeta, stan_data$Q)
+      stan_data$hat_eta <- rep(config$model$hat_eta, stan_data$Q)
+    })
   }
 
   # Save stan_data for convenient access from different scripts

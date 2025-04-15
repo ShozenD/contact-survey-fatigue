@@ -24,12 +24,16 @@ WAVE <- cli_args$arr_idx
 
 # Load the fitted model
 cat(" Loading the fitted model...\n")
+stan_data_dir <- file.path(config$out_dir, "stan_data")
+fname <- paste0(paste(config$experiment_name, WAVE, sep = "_"), ".rds")
+stan_data <- read_rds(file.path(stan_data_dir, fname))
+
 fit_dir <- file.path(config$out_dir, "stan_fits")
 fname <- paste(config$experiment_name, WAVE, sep = "_")
 fit <- read_rds(file.path(fit_dir, paste0(fname, ".rds")))
 
 cat(" Calculating quantities of interest...\n")
-dt_cint <- summarise_wcint(fit)
+dt_cint <- summarise_wcint(fit, stan_data)
 
 # Save the results
 out_dir <- file.path(config$out_dir, "results", paste(config$experiment_name, WAVE, sep = "_"))
