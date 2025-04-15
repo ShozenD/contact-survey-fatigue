@@ -94,3 +94,19 @@ wcint_urban_rural <- function(log_wcint, draws_beta_urbn) {
 
   log(Reduce(`+`, lapply(log_wcint_list, exp)))
 }
+
+wcint_job <- function(log_wcint, draws_beta_job, stan_data) {
+  # Calculate weights based on sample proportions
+  weights <- colMeans(stan_data$X_job)
+
+  log_wcint_list <- lapply(1:(ncol(draws_beta_job) + 1), function(i) {
+    if (i == 1) { # Reference group: unemployed
+      log_wcint + log(1 - sum(weights))
+    } else {
+      adj <- as.numeric(draws_beta_job[, i - 1])
+      log_wcint + adj + log(weights[i - 1])
+    }
+  })
+
+  log(Reduce(`+`, lapply(log_wcint_list, exp)))
+}
