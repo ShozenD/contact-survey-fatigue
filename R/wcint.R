@@ -5,11 +5,12 @@
 #' @param draws_beta_sex A draws_matrix of beta_sex (fixed effects)
 #' @param draws_beta_hhsize A draws_matrix of beta_hhsize (fixed effects)
 #'
-#' @return A vector of draws for the weighted contact intensity
+#' @return A draws_array for the weighted contact intensity
 #' @export
 wcint_agh <- function(age_set, draws_log_mu, draws_beta_sex, draws_beta_hhsize) {
-  draws_log_mu <- wcint_age_gender(age_set, draws_log_mu, draws_beta_sex)
-  draws_log_mu <- wcint_hhsize(draws_log_mu, draws_beta_hhsize)
+  log_mu <- wcint_age_gender(age_set, draws_log_mu, draws_beta_sex) # This function doesn't return a draws_matrix
+  log_mu <- wcint_hhsize(log_mu, draws_beta_hhsize)
+  draws_log_mu <- as_draws_matrix(matrix(log_mu, ncol=1))
 
   return(draws_log_mu)
 }
@@ -56,15 +57,14 @@ wcint_hhsize <- function(draws_log_mu, draws_beta_hhsize) {
   # Calculate log_mu for different household sizes
   log_mu_list <- lapply(1:5, function(i) {
     if (i == 3) { # Reference group
-      return(draws_log_mu + log(hh_weights[i]))
+      draws_log_mu + log(hh_weights[i])
     } else {
       if (i < 3) {
-        adj <- draws_beta_hhsize[,i]
-        sweep(draws_log_mu, 1, adj, `+`) + log(hh_weights[i])
+        adj <- as.numeric(draws_beta_hhsize[,i])
       } else {
-        adj <- draws_beta_hhsize[,i - 1]
-        sweep(draws_log_mu, 1, adj, `+`) + log(hh_weights[i])
+        adj <- as.numeric(draws_beta_hhsize[,i - 1])
       }
+      draws_log_mu + adj + log(hh_weights[i])
     }
   })
   log_mu <- log(Reduce(`+`, lapply(log_mu_list, exp)))

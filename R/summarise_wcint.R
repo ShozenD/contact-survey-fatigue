@@ -68,11 +68,11 @@ summarise_wcint_all <- function(
   draws_beta_sex,
   draws_beta_hhsize
 ) {
-  log_mu <- wcint_agh(0:84, draws_log_mu, draws_beta_sex, draws_beta_hhsize)
+  draws_log_wcint <- wcint_agh(0:84, draws_log_mu, draws_beta_sex, draws_beta_hhsize)
   
   dt_su <- setDT(
     summarise_draws(
-      exp(log_mu),
+      exp(draws_log_wcint),
       default_summary_measures()[2],
       quantiles = ~ quantile2(., probs = c(0.025, 0.975))
     )
@@ -171,15 +171,15 @@ summarise_wcint_fulltime <- function(
   draws_beta_job,
   stan_data
 ) {
-  log_mu <- wcint_agh(19:64, draws_log_mu, draws_beta_sex, draws_beta_hhsize)
+  draws_log_wcint <- wcint_agh(19:64, draws_log_mu, draws_beta_sex, draws_beta_hhsize)
   
   # idx <- which(colnames(stan_data$X_job) == "full_time")
   # mu <- exp(log_mu + draws_beta_job[, idx])
-  mu <- exp(log_mu)
+  draws_wcint <- exp(draws_log_wcint)
   
   su <- setDT(
     summarise_draws(
-      mu,
+      draws_wcint,
       default_summary_measures()[2],
       quantiles = ~ quantile2(., probs = c(0.025, 0.975))
     )
@@ -219,18 +219,18 @@ summarise_wcint_self_employed <- function(
   stan_data
 ) {
   # Calculate the log baseline contact intensity for ages 19 to 64 adjusted for age, sex, and household size.
-  log_mu <- wcint_agh(19:64, draws_log_mu, draws_beta_sex, draws_beta_hhsize)
+  draws_log_wcint <- wcint_agh(19:64, draws_log_mu, draws_beta_sex, draws_beta_hhsize)
   
   # Identify the column in the job design matrix corresponding to self-employed individuals.
   idx <- which(colnames(stan_data$X_job) == "self_employed")
   
   # Add job effect and exponentiate to transform to contact intensity.
-  mu <- exp(log_mu + draws_beta_job[, idx])
+  draws_wcint <- exp(draws_log_wcint + draws_beta_job[, idx])
   
   # Summarise the posterior draws
   su <- setDT(
     summarise_draws(
-      mu,
+      draws_wcint,
       default_summary_measures()[2],
       quantiles = ~ quantile2(., probs = c(0.025, 0.975))
     )
@@ -263,15 +263,15 @@ summarise_wcint_unemployed <- function(
   draws_beta_job,
   stan_data
 ) {
-  log_mu <- wcint_agh(19:64, draws_log_mu, draws_beta_sex, draws_beta_hhsize)
+  draws_log_wcint <- wcint_agh(19:64, draws_log_mu, draws_beta_sex, draws_beta_hhsize)
 
   idx_looking <- which(colnames(stan_data$X_job) == "unemployed_looking")
   idx_not_looking <- which(colnames(stan_data$X_job) == "unemployed_not_looking")
 
   # Calculate the average of the unemployed effects
   mu <- (
-    exp(log_mu + draws_beta_job[, idx_looking]) +
-    exp(log_mu + draws_beta_job[, idx_not_looking])
+    exp(draws_log_wcint + draws_beta_job[, idx_looking]) +
+    exp(draws_log_wcint + draws_beta_job[, idx_not_looking])
   ) / 2
   
   dt_su <- setDT(
