@@ -7,7 +7,7 @@ library(sf)
 
 # Load data
 repo_path <- getwd()
-covimod_data <- read_rds(file.path(repo_path, "data", "COVIMOD", "COVIMOD_data_zenodo.rds"))
+covimod_data <- read_rds(file.path(repo_path, "data", "COVIMOD_data_zenodo.rds"))
 nuts <- read_sf(file.path(repo_path, "data", "NUTS_RG_20M_2021_3035.geojson"))
 
 # Unpack data
