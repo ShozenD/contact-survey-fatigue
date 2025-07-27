@@ -3,7 +3,7 @@
 #' @param su Posterior summary
 #' @param stan_data The Stan data used to fit the model
 #'
-#' @return
+#' @return A data.table with cleaned labels
 #' @importFrom stringr str_detect str_remove
 #' @importFrom dplyr case_when
 #' @importFrom stringr str_split

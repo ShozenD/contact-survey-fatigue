@@ -5,7 +5,7 @@
 #' @param include Columns to include in the output matrix
 #' @param ... Additional arguments to pass to fastDummies::dummy_cols
 #'
-#' @return
+#' @return A matrix of dummy variables for the specified variable
 #' @export
 make_dummy_matrix <- function(data, variable, include = NULL, ...) {
   data <- data.table::setDT(data)

@@ -4,7 +4,7 @@
 \alias{make_stan_data_varselect_s2}
 \title{Make Stan data object for second stage of the variable selection}
 \usage{
-make_stan_data_varselect_s2(data, selected_vars, fit)
+make_stan_data_varselect_s2(data, fit_s1, summary_s1)
 }
 \arguments{
 \item{data}{data.table}

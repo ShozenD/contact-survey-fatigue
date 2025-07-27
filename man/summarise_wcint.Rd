@@ -4,10 +4,12 @@
 \alias{summarise_wcint}
 \title{Summarise the weighted contact intensity of different population subgroups}
 \usage{
-summarise_wcint(fit)
+summarise_wcint(fit, stan_data)
 }
 \arguments{
 \item{fit}{A fit object from cmdstanr}
+
+\item{stan_data}{A list containing the data passed to the Stan model}
 }
 \value{
 A data.table with the median, 2.5th and 97.5th percentiles of the contact intensity

@@ -11,6 +11,9 @@ clean_labels(su, stan_data)
 
 \item{stan_data}{The Stan data used to fit the model}
 }
+\value{
+A data.table with cleaned labels
+}
 \description{
 Clean the labels of the variables
 }

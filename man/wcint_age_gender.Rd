@@ -4,14 +4,14 @@
 \alias{wcint_age_gender}
 \title{Weighted average of contact intensity by age and gender}
 \usage{
-wcint_age_gender(age_set, draws_log_m, draws_beta)
+wcint_age_gender(age_set, draws_log_mu, draws_beta_sex)
 }
 \arguments{
 \item{age_set}{A vector of age groups}
 
-\item{draws_log_m}{A draws_matrix of log contact intensity}
+\item{draws_log_mu}{A draws_matrix of log contact intensity}
 
-\item{draws_beta}{A draws_matrix of beta (fixed effects)}
+\item{draws_beta_sex}{A draws_matrix of beta_sex (fixed effects)}
 }
 \value{
 A vector of draws for the weighted contact intensity

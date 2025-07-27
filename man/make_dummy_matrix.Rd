@@ -15,6 +15,9 @@ make_dummy_matrix(data, variable, include = NULL, ...)
 
 \item{...}{Additional arguments to pass to fastDummies::dummy_cols}
 }
+\value{
+A matrix of dummy variables for the specified variable
+}
 \description{
 Make dummy variable matrix
 }
