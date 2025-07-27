@@ -7,7 +7,7 @@ library(sf)
 
 # Load data
 repo_path <- getwd()
-covimod_data <- read_rds(file.path(repo_path, "data", "COVIMOD", "COVIMOD_data_2022-12-29.rds"))
+covimod_data <- read_rds(file.path(repo_path, "data", "COVIMOD", "COVIMOD_data_zenodo.rds"))
 nuts <- read_sf(file.path(repo_path, "data", "NUTS_RG_20M_2021_3035.geojson"))
 
 # Unpack data
@@ -84,5 +84,5 @@ df_cnt <- df_cnt %>% mutate(urbn_type = case_when(URBN_TYPE == 1 ~ "Urban",
 # ====================
 # Save data
 # ====================
-saveRDS(df_cnt, file.path("data", "silver", "covimod_wave_4.rds"))
+saveRDS(df_cnt, file.path("data", "covimod_wave_4.rds"))
 
